@@ -3,7 +3,8 @@ from datetime import datetime
 from pathlib import Path
 
 
-DATABASE_PATH = Path("data") / "vigilia.db"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATABASE_PATH = PROJECT_ROOT / "data" / "vigilia.db"
 
 
 def get_connection(database_path=DATABASE_PATH):
@@ -45,6 +46,8 @@ def initialize_database(database_path=DATABASE_PATH):
         ensure_column(connection, "access_events", "face_match_name", "TEXT")
         ensure_column(connection, "access_events", "face_match_confidence", "REAL")
         ensure_column(connection, "access_events", "face_observation_id", "INTEGER")
+        ensure_column(connection, "access_events", "decision_source", "TEXT")
+        ensure_column(connection, "access_events", "decision_reason", "TEXT")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS authorized_people (
@@ -57,6 +60,7 @@ def initialize_database(database_path=DATABASE_PATH):
             )
             """
         )
+        ensure_column(connection, "authorized_people", "access_enabled", "INTEGER NOT NULL DEFAULT 1")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS face_observations (
@@ -85,6 +89,8 @@ def insert_access_event(
     face_match_name=None,
     face_match_confidence=None,
     face_observation_id=None,
+    decision_source=None,
+    decision_reason=None,
     database_path=DATABASE_PATH,
 ):
     initialize_database(database_path)
@@ -102,9 +108,11 @@ def insert_access_event(
                 error_message,
                 face_match_name,
                 face_match_confidence,
-                face_observation_id
+                face_observation_id,
+                decision_source,
+                decision_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 created_at,
@@ -117,6 +125,8 @@ def insert_access_event(
                 face_match_name,
                 face_match_confidence,
                 face_observation_id,
+                decision_source,
+                decision_reason,
             ),
         )
         connection.commit()
@@ -141,7 +151,9 @@ def get_recent_access_events(limit=10, database_path=DATABASE_PATH):
                 error_message,
                 face_match_name,
                 face_match_confidence,
-                face_observation_id
+                face_observation_id,
+                decision_source,
+                decision_reason
             FROM access_events
             ORDER BY id DESC
             LIMIT ?
@@ -156,6 +168,7 @@ def insert_authorized_person(
     reference_image_path=None,
     face_embedding_json=None,
     notes=None,
+    access_enabled=True,
     created_at=None,
     database_path=DATABASE_PATH,
 ):
@@ -170,9 +183,10 @@ def insert_authorized_person(
                 name,
                 reference_image_path,
                 face_embedding_json,
-                notes
+                notes,
+                access_enabled
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 created_at,
@@ -180,6 +194,7 @@ def insert_authorized_person(
                 reference_image_path,
                 face_embedding_json,
                 notes,
+                int(bool(access_enabled)),
             ),
         )
         connection.commit()
@@ -199,12 +214,77 @@ def get_authorized_people(database_path=DATABASE_PATH):
                 name,
                 reference_image_path,
                 face_embedding_json,
-                notes
+                notes,
+                access_enabled
             FROM authorized_people
             ORDER BY id DESC
             """
         )
         return [dict(row) for row in cursor.fetchall()]
+
+
+def set_authorized_person_access(
+    person_id,
+    access_enabled,
+    database_path=DATABASE_PATH,
+):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            UPDATE authorized_people
+            SET access_enabled = ?
+            WHERE id = ?
+            """,
+            (
+                int(bool(access_enabled)),
+                person_id,
+            ),
+        )
+        connection.commit()
+        return cursor.rowcount
+
+
+def update_authorized_person_reference_image(
+    person_id,
+    reference_image_path,
+    database_path=DATABASE_PATH,
+):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            UPDATE authorized_people
+            SET reference_image_path = ?
+            WHERE id = ?
+            """,
+            (
+                reference_image_path,
+                person_id,
+            ),
+        )
+        connection.commit()
+        return cursor.rowcount
+
+
+def delete_authorized_person(
+    person_id,
+    database_path=DATABASE_PATH,
+):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            DELETE FROM authorized_people
+            WHERE id = ?
+            """,
+            (person_id,),
+        )
+        connection.commit()
+        return cursor.rowcount
 
 
 def insert_face_observation(

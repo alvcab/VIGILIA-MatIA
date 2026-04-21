@@ -11,15 +11,16 @@ if [[ ! -x "$FACE_ENV_PYTHON" ]]; then
 fi
 
 AUDIO_PATH="${1:-$DEFAULT_AUDIO_PATH}"
+RESPONSE_AUDIO_PATH="${2:-/tmp/ia_dice.wav}"
 
 if [[ ! -f "$AUDIO_PATH" ]]; then
   echo "No se encontro el archivo de audio: $AUDIO_PATH"
   echo "Uso:"
-  echo "  ./run_vigilia.sh /ruta/al/audio.wav"
+  echo "  ./run_vigilia.sh /ruta/al/audio.wav [/ruta/a/respuesta.wav]"
   echo
   echo "Si quieres usar el valor por defecto, primero crea /tmp/vecino.wav."
   exit 1
 fi
 
 cd "$PROJECT_DIR"
-exec "$FACE_ENV_PYTHON" v1_sin_IA/puente_vigilia.py "$AUDIO_PATH"
+exec "$FACE_ENV_PYTHON" v1_sin_IA/puente_vigilia.py "$AUDIO_PATH" "$RESPONSE_AUDIO_PATH"

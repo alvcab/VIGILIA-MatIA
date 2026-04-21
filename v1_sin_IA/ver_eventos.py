@@ -52,6 +52,8 @@ def main():
         print(f"transcript: {format_value(event['transcript'])}")
         print(f"model_response: {format_value(event['model_response'])}")
         print(f"gate_opened: {bool(event['gate_opened'])}")
+        print(f"decision_source: {format_value(event.get('decision_source'))}")
+        print(f"decision_reason: {format_value(event.get('decision_reason'))}")
         print(f"snapshot_path: {format_value(event['snapshot_path'])}")
         print(f"snapshot_status: {snapshot_status(event['snapshot_path'])}")
         print(f"error_message: {format_value(event['error_message'])}")

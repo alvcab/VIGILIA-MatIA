@@ -2,24 +2,33 @@ import sys
 
 try:
     from v1_sin_IA.event_store import (
+        delete_authorized_person,
         get_authorized_people,
         get_recent_face_observations,
         insert_authorized_person,
         insert_face_observation,
+        set_authorized_person_access,
+        update_authorized_person_reference_image,
     )
 except ModuleNotFoundError:
     from event_store import (
+        delete_authorized_person,
         get_authorized_people,
         get_recent_face_observations,
         insert_authorized_person,
         insert_face_observation,
+        set_authorized_person_access,
+        update_authorized_person_reference_image,
     )
 
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/face_registry.py add-person <nombre> [reference_image_path]")
+    print("  python3 v1_sin_IA/face_registry.py add-person <nombre> [reference_image_path] [allow|deny]")
     print("  python3 v1_sin_IA/face_registry.py list-people")
+    print("  python3 v1_sin_IA/face_registry.py set-access <person_id> <allow|deny>")
+    print("  python3 v1_sin_IA/face_registry.py update-reference-image <person_id> <reference_image_path>")
+    print("  python3 v1_sin_IA/face_registry.py remove-person <person_id>")
     print("  python3 v1_sin_IA/face_registry.py add-observation [image_path] [notes]")
     print("  python3 v1_sin_IA/face_registry.py list-observations [limite]")
 
@@ -31,10 +40,16 @@ def add_person(args):
 
     name = args[0]
     reference_image_path = args[1] if len(args) > 1 else None
+    access_enabled = True
+
+    if len(args) > 2:
+        access_enabled = args[2].lower() != "deny"
+
     person_id = insert_authorized_person(
         name=name,
         reference_image_path=reference_image_path,
         notes="manual_registry_entry",
+        access_enabled=access_enabled,
     )
     print(f"Persona autorizada guardada con id={person_id}")
 
@@ -50,6 +65,7 @@ def list_people():
         print(f"name: {person['name']}")
         print(f"created_at: {person['created_at']}")
         print(f"reference_image_path: {person['reference_image_path'] or '-'}")
+        print(f"access_enabled: {bool(person.get('access_enabled', 1))}")
         print(f"notes: {person['notes'] or '-'}")
         print("-" * 40)
 
@@ -62,6 +78,82 @@ def add_observation(args):
         notes=notes,
     )
     print(f"Observacion facial guardada con id={observation_id}")
+
+
+def set_access(args):
+    if len(args) != 2:
+        print_usage()
+        sys.exit(1)
+
+    try:
+        person_id = int(args[0])
+    except ValueError:
+        print("person_id debe ser numerico.")
+        sys.exit(1)
+
+    mode = args[1].lower()
+    if mode not in {"allow", "deny"}:
+        print("El modo debe ser allow o deny.")
+        sys.exit(1)
+
+    updated_rows = set_authorized_person_access(
+        person_id=person_id,
+        access_enabled=(mode == "allow"),
+    )
+
+    if updated_rows == 0:
+        print(f"No existe una persona con id={person_id}.")
+        sys.exit(1)
+
+    print(
+        f"Persona id={person_id} actualizada con access_enabled={mode == 'allow'}"
+    )
+
+
+def update_reference_image(args):
+    if len(args) != 2:
+        print_usage()
+        sys.exit(1)
+
+    try:
+        person_id = int(args[0])
+    except ValueError:
+        print("person_id debe ser numerico.")
+        sys.exit(1)
+
+    reference_image_path = args[1]
+    updated_rows = update_authorized_person_reference_image(
+        person_id=person_id,
+        reference_image_path=reference_image_path,
+    )
+
+    if updated_rows == 0:
+        print(f"No existe una persona con id={person_id}.")
+        sys.exit(1)
+
+    print(
+        f"Persona id={person_id} actualizada con reference_image_path={reference_image_path}"
+    )
+
+
+def remove_person(args):
+    if len(args) != 1:
+        print_usage()
+        sys.exit(1)
+
+    try:
+        person_id = int(args[0])
+    except ValueError:
+        print("person_id debe ser numerico.")
+        sys.exit(1)
+
+    deleted_rows = delete_authorized_person(person_id=person_id)
+
+    if deleted_rows == 0:
+        print(f"No existe una persona con id={person_id}.")
+        sys.exit(1)
+
+    print(f"Persona id={person_id} eliminada del registro.")
 
 
 def list_observations(args):
@@ -103,6 +195,18 @@ def main():
 
     if command == "add-observation":
         add_observation(args)
+        return
+
+    if command == "set-access":
+        set_access(args)
+        return
+
+    if command == "update-reference-image":
+        update_reference_image(args)
+        return
+
+    if command == "remove-person":
+        remove_person(args)
         return
 
     if command == "list-observations":

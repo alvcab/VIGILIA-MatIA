@@ -55,6 +55,7 @@ def main():
             "tolerance": result["tolerance"],
             "matched_person_id": result["person"]["id"] if result["person"] else None,
             "matched_person_name": result["person"]["name"] if result["person"] else None,
+            "person": result["person"],
         }
         print(json.dumps(payload))
         return

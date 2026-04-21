@@ -19,20 +19,41 @@ VTO_USER = "admin"
 VTO_PASS = "Splitreset6901"
 FACE_ENV_PYTHON = Path.home() / "miniforge3" / "envs" / "vigilia-face" / "bin" / "python"
 FACE_RECOGNIZER_SCRIPT = Path(__file__).with_name("reconocer_rostro.py")
+DEFAULT_RESPONSE_AUDIO_PATH = Path("/tmp/ia_dice.wav")
+VOICE_OPEN_KEYWORDS = (
+    "abre",
+    "abrir",
+    "abran",
+    "abrame",
+    "ábreme",
+    "porton",
+    "portón",
+    "puerta",
+    "deja pasar",
+    "dejame pasar",
+    "déjame pasar",
+    "acceso",
+)
+HIGH_CONFIDENCE_FACE_THRESHOLD = 0.82
 
 # Función para que la IA "hable"
-def decir(texto):
+def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     print(f"IA dice: {texto}")
+    response_audio_path = Path(response_audio_path)
+    response_audio_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_mp3_path = response_audio_path.with_suffix(".mp3")
+
     # Genera el audio
     tts = gTTS(text=texto, lang='es')
-    tts.save("/tmp/respuesta.mp3")
+    tts.save(str(temp_mp3_path))
     # Convierte a formato Asterisk (WAV mono, 8000Hz)
     subprocess.run([
-        'ffmpeg', '-y', '-i', '/tmp/respuesta.mp3',
-        '-ar', '8000', '-ac', '1', '/tmp/ia_dice.wav'
+        'ffmpeg', '-y', '-i', str(temp_mp3_path),
+        '-ar', '8000', '-ac', '1', str(response_audio_path)
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    temp_mp3_path.unlink(missing_ok=True)
 
-def ejecutar_porton():
+def ejecutar_porton(response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     result = subprocess.run(
         [
             "curl",
@@ -56,9 +77,9 @@ def ejecutar_porton():
     print(f"[GATE] opened: {gate_opened}")
 
     if gate_opened:
-        decir("Acceso concedido. Abriendo el portón ahora.")
+        decir("Acceso concedido. Abriendo el portón ahora.", response_audio_path=response_audio_path)
     else:
-        decir("No pude abrir el portón.")
+        decir("No pude abrir el portón.", response_audio_path=response_audio_path)
 
     return gate_opened
 
@@ -133,6 +154,8 @@ def build_decision_prompt(visitor_text, face_result):
         f"VISITOR_SPEECH: {visitor_text}\n"
         f"FACIAL_CONTEXT: {facial_context}\n"
         "TASK: Decide if the visitor is asking to open the gate.\n"
+        "POLICY: If the speech clearly asks to open and the face is a high-confidence match, prioritize OPEN.\n"
+        "POLICY: If the speech does not request access, do not open based only on the face.\n"
         "RULE: Reply with only one token.\n"
         "VALID_TOKENS: OPEN, ERROR, HOLA\n"
     )
@@ -157,7 +180,73 @@ def query_access_model(visitor_text, face_result):
     print(f"[MODEL] response: {response_text}")
     return response_text
 
-def procesar_audio(ruta_audio):
+
+def detect_open_request(visitor_text):
+    normalized_text = visitor_text.lower()
+    return any(keyword in normalized_text for keyword in VOICE_OPEN_KEYWORDS)
+
+
+def has_high_confidence_face_match(face_result):
+    if not face_result:
+        return False
+    if not face_result.get("matched"):
+        return False
+    confidence = face_confidence(face_result)
+    if confidence is None:
+        return False
+    return confidence >= HIGH_CONFIDENCE_FACE_THRESHOLD
+
+
+def face_match_is_access_enabled(face_result):
+    if not face_result:
+        return False
+    person = face_result.get("person") or {}
+    return bool(person.get("access_enabled", 1))
+
+
+def resolve_access_decision(visitor_text, face_result, model_response):
+    voice_requests_open = detect_open_request(visitor_text)
+    high_confidence_face_match = has_high_confidence_face_match(face_result)
+    access_enabled_face_match = face_match_is_access_enabled(face_result)
+    normalized_model_response = (model_response or "").strip().upper()
+
+    if voice_requests_open and high_confidence_face_match and access_enabled_face_match:
+        return {
+            "should_open": True,
+            "source": "hybrid_policy",
+            "reason": (
+                "voice_requested_open_and_face_match_high_confidence_and_whitelisted"
+            ),
+        }
+
+    if voice_requests_open and high_confidence_face_match and not access_enabled_face_match:
+        return {
+            "should_open": False,
+            "source": "hybrid_policy",
+            "reason": "voice_requested_open_but_face_match_not_whitelisted",
+        }
+
+    if "OPEN" in normalized_model_response:
+        return {
+            "should_open": True,
+            "source": "model_response",
+            "reason": "model_returned_open",
+        }
+
+    if voice_requests_open and not high_confidence_face_match:
+        return {
+            "should_open": False,
+            "source": "hybrid_policy",
+            "reason": "voice_requested_open_but_face_match_not_high_confidence",
+        }
+
+    return {
+        "should_open": False,
+        "source": "model_response",
+        "reason": "model_did_not_return_open",
+    }
+
+def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     # Cargar Whisper (oído)
     if not Path(ruta_audio).exists():
         raise FileNotFoundError(f"Audio file not found: {ruta_audio}")
@@ -170,7 +259,10 @@ def procesar_audio(ruta_audio):
     texto_vecino = result["text"].lower().strip()
     
     if not texto_vecino:
-        decir("No pude escucharte bien. Por favor, pulsa el botón de nuevo.")
+        decir(
+            "No pude escucharte bien. Por favor, pulsa el botón de nuevo.",
+            response_audio_path=response_audio_path,
+        )
         insert_access_event(
             created_at=created_at,
             audio_path=ruta_audio,
@@ -182,6 +274,8 @@ def procesar_audio(ruta_audio):
             face_match_name=face_result.get("matched_person_name") if face_result else None,
             face_match_confidence=face_confidence(face_result),
             face_observation_id=face_result.get("observation_id") if face_result else None,
+            decision_source="speech_capture",
+            decision_reason="empty_transcript",
         )
         return
 
@@ -193,12 +287,27 @@ def procesar_audio(ruta_audio):
             visitor_text=texto_vecino,
             face_result=face_result,
         )
+        decision = resolve_access_decision(
+            visitor_text=texto_vecino,
+            face_result=face_result,
+            model_response=respuesta_ia,
+        )
         gate_opened = False
-        
-        if "OPEN" in respuesta_ia:
-            gate_opened = ejecutar_porton()
+
+        print(
+            "[DECISION] "
+            f"source={decision['source']} "
+            f"reason={decision['reason']} "
+            f"should_open={decision['should_open']}"
+        )
+
+        if decision["should_open"]:
+            gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
         else:
-            decir("Lo siento, no tengo autorización para abrir el portón.")
+            decir(
+                "Lo siento, no tengo autorización para abrir el portón.",
+                response_audio_path=response_audio_path,
+            )
 
         insert_access_event(
             created_at=created_at,
@@ -211,9 +320,14 @@ def procesar_audio(ruta_audio):
             face_match_name=face_result.get("matched_person_name") if face_result else None,
             face_match_confidence=face_confidence(face_result),
             face_observation_id=face_result.get("observation_id") if face_result else None,
+            decision_source=decision["source"],
+            decision_reason=decision["reason"],
         )
     except Exception:
-        decir("Hubo un error en mi sistema, intenta más tarde.")
+        decir(
+            "Hubo un error en mi sistema, intenta más tarde.",
+            response_audio_path=response_audio_path,
+        )
         insert_access_event(
             created_at=created_at,
             audio_path=ruta_audio,
@@ -229,6 +343,8 @@ def procesar_audio(ruta_audio):
             face_match_name=face_result.get("matched_person_name") if face_result else None,
             face_match_confidence=face_confidence(face_result),
             face_observation_id=face_result.get("observation_id") if face_result else None,
+            decision_source="system_error",
+            decision_reason="ollama_or_processing_error",
         )
 
 
@@ -246,8 +362,9 @@ def combine_errors(*values):
 
 if __name__ == "__main__":
     archivo_grabado = sys.argv[1] if len(sys.argv) > 1 else "/tmp/vecino.wav"
+    response_audio_path = sys.argv[2] if len(sys.argv) > 2 else str(DEFAULT_RESPONSE_AUDIO_PATH)
     try:
-        procesar_audio(archivo_grabado)
+        procesar_audio(archivo_grabado, response_audio_path=response_audio_path)
     except FileNotFoundError as exc:
         print(f"[AUDIO] {exc}")
         print("[AUDIO] Debes indicar un archivo WAV real, por ejemplo:")
