@@ -1,0 +1,57 @@
+Resumen de softwares y herramientas disponibles para el proyecto VIGILIA MatIA
+
+Fecha:
+20 de abril de 2026
+
+Resumen ejecutivo
+
+Durante la puesta en marcha del prototipo VIGILIA MatIA se validaron e incorporaron distintas herramientas de software necesarias para operar el flujo de control de acceso, monitoreo de camara y trazabilidad local.
+
+Softwares y herramientas disponibles
+
+1. Python 3
+Lenguaje principal usado para el desarrollo del proyecto, integracion de scripts, automatizacion, acceso a SQLite y orquestacion del flujo de audio, vision y apertura.
+
+2. SQLite
+Motor de base de datos local ya disponible en la maquina, accesible tanto mediante la herramienta de linea de comandos `sqlite3` como desde el modulo estandar `sqlite3` de Python.
+
+3. FFmpeg
+Herramienta disponible para conversion de audio, captura de snapshots y procesamiento multimedia dentro del proyecto.
+
+4. ffplay
+Herramienta disponible y validada para visualizar el stream RTSP de la camara del VTO Dahua desde la iMac.
+
+5. curl
+Herramienta disponible y validada para enviar el comando HTTP Digest que abre el porton mediante el equipo Dahua.
+
+6. Ollama
+Disponible para ejecutar el modelo local usado por el proyecto para interpretar solicitudes y decidir apertura.
+
+7. Whisper
+Disponible desde Python para transcripcion de audio del visitante.
+
+8. gTTS
+Disponible desde Python para generacion de respuestas de voz.
+
+9. OpenSpec
+No se instalo la CLI oficial, pero si se incorporo su estructura de trabajo dentro del repositorio para trazabilidad de cambios, diseño y especificaciones.
+
+10. Asterisk
+El proyecto ya cuenta con configuracion para integracion SIP y dialplan con el citofono/VTO.
+
+Herramientas validadas en funcionamiento
+
+- `sqlite3`: operativo
+- `ffplay`: operativo con el stream RTSP del VTO
+- `ffmpeg`: operativo desde los scripts del proyecto
+- `curl --digest`: operativo con el Dahua para apertura del porton
+
+Observaciones
+
+- No fue necesario instalar una nueva base de datos porque SQLite ya estaba disponible en la maquina.
+- No se instalo aun la CLI oficial de OpenSpec.
+- La infraestructura actual permite continuar con pruebas locales sin depender de servicios externos adicionales.
+
+Estado actual
+
+El entorno de software disponible es suficiente para continuar con las siguientes etapas del proyecto: apertura de porton, captura de imagenes, persistencia local de eventos y evolucion trazable del sistema.

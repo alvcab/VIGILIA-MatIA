@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+.venv-face/
+venv/
+
+# Local databases and runtime data
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Generated captures and media artifacts
+captures/
+*.wav
+*.mp3
+
+# Local reports exports
+reports/*.pdf
+
+# Local environment files
+.env
+.env.*
+
+# Editor / local tooling
+.pytest_cache/
