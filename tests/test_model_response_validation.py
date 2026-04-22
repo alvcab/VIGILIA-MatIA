@@ -2,6 +2,7 @@ import unittest
 
 from v1_sin_IA.puente_vigilia import (
     capture_snapshot_and_face,
+    classify_face_match_band,
     detect_open_request,
     face_result_distance,
     normalize_model_token,
@@ -85,6 +86,41 @@ class ModelResponseValidationTests(unittest.TestCase):
         self.assertEqual(face_result["distance"], 0.9)
         self.assertIsNone(face_error)
         self.assertIsNone(retry_snapshot_path)
+
+    def test_classifies_trusted_and_borderline_face_bands(self):
+        self.assertEqual(
+            classify_face_match_band(
+                {"matched": True, "distance": 0.40, "tolerance": 0.45}
+            ),
+            "trusted",
+        )
+        self.assertEqual(
+            classify_face_match_band(
+                {"matched": True, "distance": 0.50, "tolerance": 0.45}
+            ),
+            "borderline",
+        )
+
+    def test_detects_known_access_phrase_from_observed_transcript(self):
+        self.assertTrue(detect_open_request("abril por tom por favor."))
+
+    def test_returns_borderline_reason_for_voice_request(self):
+        decision = resolve_access_decision(
+            visitor_text="abril por tom por favor",
+            face_result={
+                "matched": True,
+                "distance": 0.50,
+                "tolerance": 0.45,
+                "person": {"access_enabled": 1},
+            },
+            model_response=None,
+        )
+
+        self.assertFalse(decision["should_open"])
+        self.assertEqual(
+            decision["reason"],
+            "voice_requested_open_but_face_match_borderline",
+        )
 
 
 if __name__ == "__main__":

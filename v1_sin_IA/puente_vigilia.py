@@ -13,10 +13,10 @@ from pathlib import Path
 from gtts import gTTS
 
 try:
-    from v1_sin_IA.event_store import insert_access_event
+    from v1_sin_IA.event_store import get_enabled_access_phrases, insert_access_event
     from v1_sin_IA.vto_camera import capture_snapshot
 except ModuleNotFoundError:
-    from event_store import insert_access_event
+    from event_store import get_enabled_access_phrases, insert_access_event
     from vto_camera import capture_snapshot
 
 
@@ -56,6 +56,7 @@ VOICE_OPEN_PHRASES = (
 )
 VOICE_OPEN_FUZZY_THRESHOLD = 0.72
 FACE_RETRY_ON_OPEN_REQUESTS = 1
+FACE_BORDERLINE_DISTANCE_MARGIN = 0.10
 
 # Función para que la IA "hable"
 def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
@@ -359,22 +360,37 @@ def detect_open_request(visitor_text):
     if any(keyword in normalized_text for keyword in VOICE_OPEN_KEYWORDS):
         return True
 
+    known_access_phrases = get_enabled_access_phrases()
+    if normalized_text in known_access_phrases:
+        return True
+
     return any(
         fuzzy_contains_phrase(normalized_text, phrase)
         for phrase in VOICE_OPEN_PHRASES
     )
 
 
-def has_trusted_face_match(face_result):
+def classify_face_match_band(face_result):
     if not face_result:
-        return False
+        return "unknown"
     if not face_result.get("matched"):
-        return False
+        return "low"
     distance = face_result.get("distance")
     tolerance = face_result.get("tolerance")
     if distance is None or tolerance is None:
-        return False
-    return float(distance) <= float(tolerance)
+        return "unknown"
+
+    distance = float(distance)
+    tolerance = float(tolerance)
+    if distance <= tolerance:
+        return "trusted"
+    if distance <= tolerance + FACE_BORDERLINE_DISTANCE_MARGIN:
+        return "borderline"
+    return "low"
+
+
+def has_trusted_face_match(face_result):
+    return classify_face_match_band(face_result) == "trusted"
 
 
 def face_match_is_access_enabled(face_result):
@@ -386,6 +402,7 @@ def face_match_is_access_enabled(face_result):
 
 def resolve_access_decision(visitor_text, face_result, model_response):
     voice_requests_open = detect_open_request(visitor_text)
+    face_match_band = classify_face_match_band(face_result)
     trusted_face_match = has_trusted_face_match(face_result)
     access_enabled_face_match = face_match_is_access_enabled(face_result)
     normalized_model_token = normalize_model_token(model_response)
@@ -404,6 +421,20 @@ def resolve_access_decision(visitor_text, face_result, model_response):
             "should_open": False,
             "source": "hybrid_policy",
             "reason": "voice_requested_open_but_face_match_within_tolerance_not_whitelisted",
+        }
+
+    if voice_requests_open and normalized_model_token == "OPEN":
+        return {
+            "should_open": True,
+            "source": "hybrid_policy",
+            "reason": "voice_requested_open_and_model_returned_open",
+        }
+
+    if voice_requests_open and face_match_band == "borderline":
+        return {
+            "should_open": False,
+            "source": "hybrid_policy",
+            "reason": "voice_requested_open_but_face_match_borderline",
         }
 
     if normalized_model_token == "OPEN":

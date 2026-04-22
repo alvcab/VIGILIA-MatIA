@@ -13,7 +13,7 @@ El sistema DEBE interpretar una solicitud hablada o escrita del visitante para d
 #### Escenario: Solicitud directa de apertura del porton
 
 - DADO que un visitante pide abrir la puerta o el porton
-- CUANDO la solicitud es procesada por el flujo del modelo local o por reglas locales tolerantes a errores menores de transcripcion
+- CUANDO la solicitud es procesada por el flujo del modelo local, por reglas locales tolerantes a errores menores de transcripcion o por frases observadas y aprobadas en la base local
 - ENTONCES el resultado de decision se trata como una solicitud de acceso
 
 #### Escenario: Entrada de voz vacia o poco clara
@@ -60,6 +60,14 @@ El sistema DEBE abrir el porton solo cuando la capa de decision devuelve un toke
 - Y el primer snapshot facial no logra una coincidencia confiable
 - CUANDO el flujo hibrido realiza un reintento acotado de snapshot y matching
 - ENTONCES el sistema usa el mejor resultado disponible antes de decidir
+
+#### Escenario: Coincidencia facial borderline
+
+- DADO que la voz contiene una solicitud clara de apertura
+- Y el rostro coincide pero queda apenas fuera de la tolerancia configurada
+- CUANDO el flujo clasifica el resultado facial
+- ENTONCES el sistema registra el caso como borderline
+- Y no abre con ese resultado por si solo
 
 ### Requisito: Entregar retroalimentacion al visitante
 

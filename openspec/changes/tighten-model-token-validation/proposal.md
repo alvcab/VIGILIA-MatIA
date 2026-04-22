@@ -13,6 +13,8 @@ Eso permite aperturas indebidas cuando el modelo devuelve texto libre, eco del p
 - Tolerar errores menores de transcripcion cuando la voz pide apertura y el rostro autorizado coincide dentro de la tolerancia facial
 - Mantener un servicio local persistente Whisper-only entre llamadas
 - Reintentar una vez el snapshot facial cuando hay una solicitud clara de apertura y el primer matching falla
+- Promover frases reales observadas en la base local a repertorio de acceso conocido
+- Separar bandas faciales explicitas para distinguir match confiable, borderline y no confiable
 - Cubrir el parsing con una prueba automatizada minima
 
 ## No Objetivos
@@ -28,4 +30,5 @@ Eso permite aperturas indebidas cuando el modelo devuelve texto libre, eco del p
 - La ruta hibrida sigue funcionando aunque Whisper deforme ligeramente frases claras de apertura
 - El costo de arranque de Whisper se reduce al reutilizar un proceso local, con fallback rapido si el servicio no responde
 - El matching facial queda menos sensible a un snapshot puntual malo
+- La decision usa mejor los datos reales acumulados en la base local
 - El comportamiento queda reflejado en OpenSpec

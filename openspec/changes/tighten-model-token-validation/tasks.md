@@ -17,3 +17,4 @@
 - [x] 1.13 Limitar el servicio persistente a transcripcion al detectar timeouts en reconocimiento facial
 - [x] 1.14 Simplificar el servicio persistente a Whisper-only con fallback rapido y sin health-check bloqueante
 - [x] 1.15 Reintentar una vez el snapshot facial en solicitudes claras de apertura cuando el primer matching no es confiable
+- [x] 1.16 Promover frases observadas en la base local y bandas faciales explicitas a la politica de decision

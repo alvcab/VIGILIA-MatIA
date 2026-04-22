@@ -5,6 +5,14 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATABASE_PATH = PROJECT_ROOT / "data" / "vigilia.db"
+DEFAULT_KNOWN_ACCESS_PHRASES = (
+    ("abre el porton por favor", "seed_builtin", "canonical_open_request"),
+    ("abrir el porton por favor", "seed_builtin", "canonical_open_request"),
+    ("abre el porton", "seed_builtin", "canonical_open_request"),
+    ("abre la puerta", "seed_builtin", "canonical_open_request"),
+    ("dejame pasar", "seed_builtin", "canonical_open_request"),
+    ("abril por tom por favor", "seed_observed", "observed_from_access_events"),
+)
 
 
 def get_connection(database_path=DATABASE_PATH):
@@ -75,7 +83,46 @@ def initialize_database(database_path=DATABASE_PATH):
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS known_access_phrases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                phrase_text TEXT NOT NULL,
+                normalized_phrase TEXT NOT NULL UNIQUE,
+                source TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                notes TEXT
+            )
+            """
+        )
+        seed_known_access_phrases(connection)
         connection.commit()
+
+
+def seed_known_access_phrases(connection):
+    for phrase_text, source, notes in DEFAULT_KNOWN_ACCESS_PHRASES:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO known_access_phrases (
+                created_at,
+                phrase_text,
+                normalized_phrase,
+                source,
+                enabled,
+                notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                datetime.now().isoformat(timespec="seconds"),
+                phrase_text,
+                phrase_text,
+                source,
+                1,
+                notes,
+            ),
+        )
 
 
 def insert_access_event(
@@ -349,3 +396,18 @@ def get_recent_face_observations(limit=10, database_path=DATABASE_PATH):
             (limit,),
         )
         return [dict(row) for row in cursor.fetchall()]
+
+
+def get_enabled_access_phrases(database_path=DATABASE_PATH):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            SELECT normalized_phrase
+            FROM known_access_phrases
+            WHERE enabled = 1
+            ORDER BY id DESC
+            """
+        )
+        return [row[0] for row in cursor.fetchall()]
