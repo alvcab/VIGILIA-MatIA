@@ -26,6 +26,8 @@ El repositorio ya incluye:
 ## Estructura Principal
 
 - [run_vigilia.sh](./run_vigilia.sh): lanzador principal del flujo de audio
+- [v1_sin_IA/inference_service.py](./v1_sin_IA/inference_service.py): servicio local persistente para transcripcion y reconocimiento facial
+- [v1_sin_IA/inference_client.py](./v1_sin_IA/inference_client.py): cliente minimo para health-check del servicio local
 - [v1_sin_IA/puente_vigilia.py](./v1_sin_IA/puente_vigilia.py): pipeline de acceso con voz, snapshot, matching facial y decision
 - [v1_sin_IA/vto_camera.py](./v1_sin_IA/vto_camera.py): vista en vivo y snapshots del VTO
 - [v1_sin_IA/event_store.py](./v1_sin_IA/event_store.py): acceso a SQLite
@@ -48,6 +50,8 @@ Ese entorno contiene:
 - `gTTS`
 - `openai-whisper`
 - `torch`
+
+El runner intenta mantener un servicio local persistente en `/tmp/vigilia_inference.sock` para evitar recargar Whisper en cada llamada.
 
 ## Comandos Utiles
 
@@ -79,6 +83,12 @@ Ejecutar el flujo principal con un audio real:
 
 ```bash
 ./run_vigilia.sh /ruta/al/audio.wav
+
+Ver el log del servicio persistente:
+
+```bash
+tail -f /tmp/vigilia_inference.log
+```
 ```
 
 Registrar una persona autorizada:

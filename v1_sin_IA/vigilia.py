@@ -4,6 +4,17 @@ import subprocess
 VTO_IP = "192.168.100.108"
 VTO_USER = "admin"
 VTO_PASS = "Splitreset6901"
+VALID_MODEL_TOKENS = {"OPEN", "ERROR", "HOLA"}
+
+
+def normalize_model_token(model_response):
+    if model_response is None:
+        return None
+
+    normalized_response = model_response.strip().upper()
+    if normalized_response in VALID_MODEL_TOKENS:
+        return normalized_response
+    return None
 
 
 def open_gate():
@@ -33,10 +44,12 @@ def open_gate():
 
 def procesar_comando(texto_usuario):
     # Consultamos a nuestra IA personalizada
-    comando_ollama = f'ollama run vigilia-mini "{texto_usuario}"'
-    respuesta = subprocess.check_output(comando_ollama, shell=True).decode('utf-8').strip()
+    respuesta = subprocess.check_output(
+        ["ollama", "run", "vigilia-mini", texto_usuario],
+        text=True,
+    ).strip()
 
-    if "OPEN" in respuesta:
+    if normalize_model_token(respuesta) == "OPEN":
         print("🔓 IA dice OPEN: Abriendo portón...")
         if not open_gate():
             print("❌ El comando curl no logró abrir el portón.")
