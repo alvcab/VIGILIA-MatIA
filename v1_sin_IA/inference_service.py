@@ -8,11 +8,6 @@ from pathlib import Path
 
 import whisper
 
-try:
-    from v1_sin_IA.face_engine import is_backend_available, record_face_observation_from_image
-except ModuleNotFoundError:
-    from face_engine import is_backend_available, record_face_observation_from_image
-
 
 SOCKET_PATH = Path("/tmp/vigilia_inference.sock")
 WHISPER_MODEL_NAME = "tiny"
@@ -53,40 +48,6 @@ def handle_transcribe(model, payload):
         "text": result["text"],
         "timing_seconds": time.perf_counter() - started_at,
     }
-
-
-def build_face_payload(result):
-    return {
-        "backend_available": True,
-        "observation_id": result["observation_id"],
-        "matched": result["matched"],
-        "distance": result["distance"],
-        "tolerance": result["tolerance"],
-        "matched_person_id": result["person"]["id"] if result["person"] else None,
-        "matched_person_name": result["person"]["name"] if result["person"] else None,
-        "person": result["person"],
-    }
-
-
-def handle_face_recognize(payload):
-    if not is_backend_available():
-        return {
-            "ok": False,
-            "error": "face_recognition_backend_unavailable",
-        }
-
-    image_path = payload["image_path"]
-    tolerance = float(payload.get("tolerance", 0.45))
-    started_at = time.perf_counter()
-    print(f"[SERVICE] action=face_recognize image_path={image_path}", flush=True)
-    result = record_face_observation_from_image(
-        image_path=image_path,
-        tolerance=tolerance,
-    )
-    face_payload = build_face_payload(result)
-    face_payload["ok"] = True
-    face_payload["timing_seconds"] = time.perf_counter() - started_at
-    return face_payload
 
 
 def remove_socket_file():
@@ -157,10 +118,6 @@ def main():
 
                     if action == "transcribe":
                         send_response(connection, handle_transcribe(model, payload))
-                        continue
-
-                    if action == "face_recognize":
-                        send_response(connection, handle_face_recognize(payload))
                         continue
 
                     send_response(connection, {"ok": False, "error": "unknown_action"})

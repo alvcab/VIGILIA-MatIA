@@ -54,6 +54,13 @@ El sistema DEBE abrir el porton solo cuando la capa de decision devuelve un toke
 - CUANDO el flujo hibrido evalua la solicitud
 - ENTONCES el sistema permite abrir el porton
 
+#### Escenario: Reintento facial ante una solicitud clara de apertura
+
+- DADO que la voz contiene una solicitud clara de apertura
+- Y el primer snapshot facial no logra una coincidencia confiable
+- CUANDO el flujo hibrido realiza un reintento acotado de snapshot y matching
+- ENTONCES el sistema usa el mejor resultado disponible antes de decidir
+
 ### Requisito: Entregar retroalimentacion al visitante
 
 El sistema DEBE proporcionar retroalimentacion audible o textual que describa el resultado de la solicitud de acceso.

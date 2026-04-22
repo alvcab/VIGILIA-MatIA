@@ -3,7 +3,9 @@ import unittest
 from v1_sin_IA.puente_vigilia import (
     capture_snapshot_and_face,
     detect_open_request,
+    face_result_distance,
     normalize_model_token,
+    retry_face_recognition_for_open_request,
     resolve_access_decision,
 )
 
@@ -68,6 +70,21 @@ class ModelResponseValidationTests(unittest.TestCase):
     def test_capture_snapshot_and_face_returns_four_values(self):
         result = capture_snapshot_and_face.__name__
         self.assertEqual(result, "capture_snapshot_and_face")
+
+    def test_face_result_distance_returns_none_without_distance(self):
+        self.assertIsNone(face_result_distance(None))
+        self.assertIsNone(face_result_distance({"matched": False}))
+
+    def test_retry_face_recognition_skips_non_open_request(self):
+        face_result, face_error, retry_snapshot_path = retry_face_recognition_for_open_request(
+            visitor_text="hola buenas tardes",
+            face_result={"matched": False, "distance": 0.9, "tolerance": 0.45},
+            face_error=None,
+        )
+
+        self.assertEqual(face_result["distance"], 0.9)
+        self.assertIsNone(face_error)
+        self.assertIsNone(retry_snapshot_path)
 
 
 if __name__ == "__main__":

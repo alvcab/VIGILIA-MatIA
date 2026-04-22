@@ -28,7 +28,6 @@ FACE_RECOGNIZER_SCRIPT = Path(__file__).with_name("reconocer_rostro.py")
 INFERENCE_SOCKET_PATH = Path("/tmp/vigilia_inference.sock")
 DEFAULT_RESPONSE_AUDIO_PATH = Path("/tmp/ia_dice.wav")
 VALID_MODEL_TOKENS = {"OPEN", "ERROR", "HOLA"}
-USE_PERSISTENT_FACE_SERVICE = False
 VOICE_OPEN_KEYWORDS = (
     "abre",
     "abrir",
@@ -56,6 +55,7 @@ VOICE_OPEN_PHRASES = (
     "deja pasar",
 )
 VOICE_OPEN_FUZZY_THRESHOLD = 0.72
+FACE_RETRY_ON_OPEN_REQUESTS = 1
 
 # Función para que la IA "hable"
 def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
@@ -128,29 +128,6 @@ def try_face_recognition(snapshot_path):
         print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
         return None, "face_recognition_skipped_no_snapshot"
 
-    if USE_PERSISTENT_FACE_SERVICE:
-        service_payload = send_inference_request(
-            action="face_recognize",
-            payload={
-                "image_path": snapshot_path,
-                "tolerance": 0.45,
-            },
-            timeout_seconds=12,
-        )
-        if service_payload:
-            if service_payload.get("ok"):
-                print(
-                    "[FACE] "
-                    f"matched={service_payload.get('matched')} "
-                    f"name={service_payload.get('matched_person_name')} "
-                    f"distance={service_payload.get('distance')}"
-                )
-                print(f"[TIMING] face_recognition_service_seconds={service_payload.get('timing_seconds', 0.0):.3f}")
-                print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
-                return service_payload, None
-
-            print(f"[FACE] service_error: {service_payload.get('error')}")
-
     if not FACE_ENV_PYTHON.exists():
         print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
         return None, "face_recognition_env_not_found"
@@ -207,6 +184,39 @@ def try_face_recognition(snapshot_path):
     )
     print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
     return payload, None
+
+
+def retry_face_recognition_for_open_request(visitor_text, face_result, face_error):
+    if not detect_open_request(visitor_text):
+        return face_result, face_error, None
+
+    if has_trusted_face_match(face_result):
+        return face_result, face_error, None
+
+    best_face_result = face_result
+    best_face_error = face_error
+    retry_snapshot_path = None
+
+    for attempt in range(1, FACE_RETRY_ON_OPEN_REQUESTS + 1):
+        print(f"[FACE] retry attempt={attempt}")
+        retry_snapshot_path, retry_snapshot_error = try_capture_snapshot()
+        retry_face_result, retry_face_error = try_face_recognition(retry_snapshot_path)
+
+        if has_trusted_face_match(retry_face_result):
+            return retry_face_result, combine_errors(face_error, retry_snapshot_error, retry_face_error), retry_snapshot_path
+
+        if best_face_result is None and retry_face_result is not None:
+            best_face_result = retry_face_result
+            best_face_error = combine_errors(face_error, retry_snapshot_error, retry_face_error)
+            continue
+
+        current_distance = face_result_distance(best_face_result)
+        retry_distance = face_result_distance(retry_face_result)
+        if retry_distance is not None and (current_distance is None or retry_distance < current_distance):
+            best_face_result = retry_face_result
+            best_face_error = combine_errors(face_error, retry_snapshot_error, retry_face_error)
+
+    return best_face_result, best_face_error, retry_snapshot_path
 
 
 def capture_snapshot_and_face():
@@ -460,6 +470,16 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
 
     print(f"El vecino dijo: {texto_vecino}")
 
+    face_result, merged_face_error, retry_snapshot_path = retry_face_recognition_for_open_request(
+        visitor_text=texto_vecino,
+        face_result=face_result,
+        face_error=face_error,
+    )
+    if merged_face_error is not None:
+        face_error = merged_face_error
+    if retry_snapshot_path is not None:
+        snapshot_path = retry_snapshot_path
+
     pre_model_decision = resolve_access_decision(
         visitor_text=texto_vecino,
         face_result=face_result,
@@ -571,7 +591,7 @@ def transcribe_audio(ruta_audio):
     service_payload = send_inference_request(
         action="transcribe",
         payload={"audio_path": ruta_audio},
-        timeout_seconds=15,
+        timeout_seconds=4,
     )
     if service_payload and service_payload.get("ok"):
         print(f"[TIMING] transcription_service_seconds={service_payload.get('timing_seconds', 0.0):.3f}")
@@ -592,6 +612,12 @@ def face_confidence(face_result):
     if not face_result or face_result.get("distance") is None:
         return None
     return 1.0 - float(face_result["distance"])
+
+
+def face_result_distance(face_result):
+    if not face_result or face_result.get("distance") is None:
+        return None
+    return float(face_result["distance"])
 
 
 def combine_errors(*values):

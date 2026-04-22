@@ -15,3 +15,5 @@
 - [x] 1.11 Reducir la resolucion usada para embeddings faciales manteniendo el snapshot completo para trazabilidad
 - [x] 1.12 Agregar un servicio local persistente para transcripcion y reconocimiento facial con autoarranque desde `run_vigilia.sh`
 - [x] 1.13 Limitar el servicio persistente a transcripcion al detectar timeouts en reconocimiento facial
+- [x] 1.14 Simplificar el servicio persistente a Whisper-only con fallback rapido y sin health-check bloqueante
+- [x] 1.15 Reintentar una vez el snapshot facial en solicitudes claras de apertura cuando el primer matching no es confiable
