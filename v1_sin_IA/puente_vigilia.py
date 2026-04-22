@@ -55,7 +55,7 @@ VOICE_OPEN_PHRASES = (
     "deja pasar",
 )
 VOICE_OPEN_FUZZY_THRESHOLD = 0.72
-FACE_RETRY_ON_OPEN_REQUESTS = 1
+FACE_RETRY_ON_OPEN_REQUESTS = 2
 FACE_BORDERLINE_DISTANCE_MARGIN = 0.10
 
 # Función para que la IA "hable"
@@ -173,6 +173,11 @@ def try_face_recognition(snapshot_path):
         print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
         return None, "face_recognition_invalid_output"
 
+    if payload.get("error") == "face_encoding_not_found":
+        print(f"[FACE] no_face_detected snapshot={snapshot_path}")
+        print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
+        return None, "face_encoding_not_found"
+
     if not payload.get("backend_available", False):
         print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
         return None, payload.get("error", "face_recognition_backend_unavailable")
@@ -218,6 +223,12 @@ def retry_face_recognition_for_open_request(visitor_text, face_result, face_erro
             best_face_error = combine_errors(face_error, retry_snapshot_error, retry_face_error)
 
     return best_face_result, best_face_error, retry_snapshot_path
+
+
+def build_denial_message(visitor_text, face_error):
+    if detect_open_request(visitor_text) and face_error and "face_encoding_not_found" in face_error:
+        return "No logro verte bien. Acercate a la camara, mira de frente y vuelve a intentarlo."
+    return "Lo siento, no tengo autorización para abrir el portón."
 
 
 def capture_snapshot_and_face():
@@ -531,7 +542,7 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
         else:
             decir(
-                "Lo siento, no tengo autorización para abrir el portón.",
+                build_denial_message(texto_vecino, face_error),
                 response_audio_path=response_audio_path,
             )
 
@@ -575,7 +586,7 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
         else:
             decir(
-                "Lo siento, no tengo autorización para abrir el portón.",
+                build_denial_message(texto_vecino, face_error),
                 response_audio_path=response_audio_path,
             )
 

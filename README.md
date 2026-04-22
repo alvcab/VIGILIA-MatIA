@@ -82,12 +82,12 @@ Ejecutar el flujo principal con un audio real:
 
 ```bash
 ./run_vigilia.sh /ruta/al/audio.wav
+```
 
 Ver el log del servicio persistente:
 
 ```bash
 tail -f /tmp/vigilia_inference.log
-```
 ```
 
 Registrar una persona autorizada:
@@ -201,6 +201,9 @@ sqlite3 -header -column data/vigilia.db "select id, created_at, transcript, mode
 - La whitelist facial vive en `authorized_people.access_enabled`.
 - La base SQLite se resuelve con ruta absoluta dentro del repo para evitar inconsistencias entre scripts.
 - `captures/` y `data/vigilia.db` no se versionan.
+- En pruebas nocturnas del VTO, `Dia/Noche = Black/White` dio mejores resultados de matching facial que `Automatico`.
+- Contraluces fuertes, como una TV brillante o luz lateral detras del visitante, degradan mucho el matching aunque la cara siga siendo visible.
+- Si el sistema no logra una cara usable, ahora intenta snapshots adicionales y orienta al visitante a acercarse y mirar de frente a la camara.
 
 ## Proximo Paso Sugerido
 

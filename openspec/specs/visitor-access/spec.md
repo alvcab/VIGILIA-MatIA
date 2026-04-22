@@ -16,6 +16,12 @@ El sistema DEBE interpretar una solicitud hablada o escrita del visitante para d
 - CUANDO la solicitud es procesada por el flujo del modelo local, por reglas locales tolerantes a errores menores de transcripcion o por frases observadas y aprobadas en la base local
 - ENTONCES el resultado de decision se trata como una solicitud de acceso
 
+#### Escenario: Frase observada promovida desde eventos exitosos
+
+- DADO que una transcripcion observada abre repetidamente mediante la politica hibrida
+- CUANDO el sistema consulta su repertorio local de acceso
+- ENTONCES esa frase puede tratarse como una solicitud conocida de apertura
+
 #### Escenario: Entrada de voz vacia o poco clara
 
 - DADO que el audio grabado no produce texto utilizable
@@ -60,6 +66,20 @@ El sistema DEBE abrir el porton solo cuando la capa de decision devuelve un toke
 - Y el primer snapshot facial no logra una coincidencia confiable
 - CUANDO el flujo hibrido realiza un reintento acotado de snapshot y matching
 - ENTONCES el sistema usa el mejor resultado disponible antes de decidir
+
+#### Escenario: Cara no detectable por luz o posicion
+
+- DADO que la voz contiene una solicitud clara de apertura
+- Y el sistema no logra extraer una cara usable del snapshot
+- CUANDO falla el matching facial incluso tras reintentos acotados
+- ENTONCES el sistema orienta al visitante a acercarse y mirar la camara antes de reintentar
+
+#### Escenario: Operacion nocturna con modo monocromo
+
+- DADO que el acceso se usa de noche o con iluminacion IR
+- Y el VTO entrega mejor consistencia facial en modo monocromo
+- CUANDO el sistema opera con `Dia/Noche` configurado en `Black/White`
+- ENTONCES el matching facial nocturno puede resultar mas estable que en modo automatico o color
 
 #### Escenario: Coincidencia facial borderline
 

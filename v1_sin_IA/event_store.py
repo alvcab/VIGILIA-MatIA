@@ -1,6 +1,8 @@
 import sqlite3
+import unicodedata
 from datetime import datetime
 from pathlib import Path
+import re
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -13,6 +15,18 @@ DEFAULT_KNOWN_ACCESS_PHRASES = (
     ("dejame pasar", "seed_builtin", "canonical_open_request"),
     ("abril por tom por favor", "seed_observed", "observed_from_access_events"),
 )
+LEARNED_ACCESS_PHRASE_MIN_SUCCESSES = 2
+LEARNED_ACCESS_DECISION_REASON = (
+    "voice_requested_open_and_face_match_within_tolerance_and_whitelisted"
+)
+
+
+def normalize_phrase_text(text):
+    normalized = unicodedata.normalize("NFKD", (text or "").lower())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
 
 
 def get_connection(database_path=DATABASE_PATH):
@@ -117,7 +131,7 @@ def seed_known_access_phrases(connection):
             (
                 datetime.now().isoformat(timespec="seconds"),
                 phrase_text,
-                phrase_text,
+                normalize_phrase_text(phrase_text),
                 source,
                 1,
                 notes,
@@ -410,4 +424,34 @@ def get_enabled_access_phrases(database_path=DATABASE_PATH):
             ORDER BY id DESC
             """
         )
-        return [row[0] for row in cursor.fetchall()]
+        known_phrases = [row[0] for row in cursor.fetchall()]
+
+        learned_cursor = connection.execute(
+            """
+            SELECT transcript, COUNT(*) AS total
+            FROM access_events
+            WHERE gate_opened = 1
+              AND decision_reason = ?
+              AND transcript IS NOT NULL
+              AND TRIM(transcript) != ''
+            GROUP BY transcript
+            HAVING COUNT(*) >= ?
+            ORDER BY total DESC
+            """,
+            (
+                LEARNED_ACCESS_DECISION_REASON,
+                LEARNED_ACCESS_PHRASE_MIN_SUCCESSES,
+            ),
+        )
+        learned_phrases = [
+            normalize_phrase_text(row[0])
+            for row in learned_cursor.fetchall()
+            if normalize_phrase_text(row[0])
+        ]
+
+        # Keep order stable while de-duplicating known and learned phrases.
+        deduped_phrases = []
+        for phrase in known_phrases + learned_phrases:
+            if phrase not in deduped_phrases:
+                deduped_phrases.append(phrase)
+        return deduped_phrases

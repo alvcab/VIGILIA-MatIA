@@ -1,6 +1,8 @@
 import unittest
 
+from v1_sin_IA.event_store import normalize_phrase_text
 from v1_sin_IA.puente_vigilia import (
+    build_denial_message,
     capture_snapshot_and_face,
     classify_face_match_band,
     detect_open_request,
@@ -121,6 +123,19 @@ class ModelResponseValidationTests(unittest.TestCase):
             decision["reason"],
             "voice_requested_open_but_face_match_borderline",
         )
+
+    def test_normalize_phrase_text_collapses_observed_transcript(self):
+        self.assertEqual(
+            normalize_phrase_text("abril por tom por favor."),
+            "abril por tom por favor",
+        )
+
+    def test_build_denial_message_uses_camera_guidance_when_no_face_detected(self):
+        message = build_denial_message(
+            "abril por tom por favor",
+            "face_encoding_not_found",
+        )
+        self.assertIn("Acercate a la camara", message)
 
 
 if __name__ == "__main__":

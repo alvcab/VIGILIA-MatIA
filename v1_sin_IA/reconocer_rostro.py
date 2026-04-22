@@ -44,7 +44,22 @@ def main():
             print("La base SQLite y el flujo de matching ya quedaron preparados.")
         sys.exit(2)
 
-    result = record_face_observation_from_image(image_path=image_path)
+    try:
+        result = record_face_observation_from_image(image_path=image_path)
+    except ValueError as exc:
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "backend_available": True,
+                        "error": "face_encoding_not_found",
+                        "message": str(exc),
+                    }
+                )
+            )
+        else:
+            print(str(exc))
+        sys.exit(2)
 
     if json_output:
         payload = {

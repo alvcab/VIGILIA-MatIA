@@ -15,6 +15,8 @@ Eso permite aperturas indebidas cuando el modelo devuelve texto libre, eco del p
 - Reintentar una vez el snapshot facial cuando hay una solicitud clara de apertura y el primer matching falla
 - Promover frases reales observadas en la base local a repertorio de acceso conocido
 - Separar bandas faciales explicitas para distinguir match confiable, borderline y no confiable
+- Aprender automaticamente frases de acceso desde eventos exitosos repetidos
+- Distinguir ausencia de cara detectable para entregar una respuesta operativa mejor al visitante
 - Cubrir el parsing con una prueba automatizada minima
 
 ## No Objetivos
@@ -31,4 +33,6 @@ Eso permite aperturas indebidas cuando el modelo devuelve texto libre, eco del p
 - El costo de arranque de Whisper se reduce al reutilizar un proceso local, con fallback rapido si el servicio no responde
 - El matching facial queda menos sensible a un snapshot puntual malo
 - La decision usa mejor los datos reales acumulados en la base local
+- Las frases exitosas repetidas pasan a reforzar la deteccion de intencion
+- Los fallos por luz o encuadre ya no se presentan como una simple negativa opaca
 - El comportamiento queda reflejado en OpenSpec
