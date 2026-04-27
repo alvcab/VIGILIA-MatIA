@@ -70,6 +70,50 @@ def initialize_database(database_path=DATABASE_PATH):
         ensure_column(connection, "access_events", "face_observation_id", "INTEGER")
         ensure_column(connection, "access_events", "decision_source", "TEXT")
         ensure_column(connection, "access_events", "decision_reason", "TEXT")
+        ensure_column(connection, "access_events", "claimed_resident_name", "TEXT")
+        ensure_column(connection, "access_events", "claimed_unit", "TEXT")
+        ensure_column(connection, "access_events", "resolved_resident_id", "INTEGER")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS residents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                preferred_name TEXT,
+                apartment_unit TEXT,
+                building TEXT,
+                phone_primary TEXT,
+                phone_secondary TEXT,
+                access_enabled INTEGER NOT NULL DEFAULT 1,
+                notes TEXT
+            )
+            """
+        )
+        ensure_column(connection, "residents", "ownership_share", "REAL")
+        ensure_column(connection, "residents", "resident_role", "TEXT")
+        ensure_column(connection, "residents", "validation_status", "TEXT")
+        ensure_column(connection, "residents", "is_account_manager", "INTEGER")
+        ensure_column(connection, "residents", "email_primary", "TEXT")
+        ensure_column(connection, "residents", "tax_id", "TEXT")
+        ensure_column(connection, "residents", "system_enrolled", "INTEGER")
+        ensure_column(connection, "residents", "last_system_access", "TEXT")
+        ensure_column(connection, "residents", "source", "TEXT")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS resident_aliases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                resident_id INTEGER NOT NULL,
+                alias_text TEXT NOT NULL,
+                normalized_alias TEXT NOT NULL,
+                alias_type TEXT NOT NULL DEFAULT 'name',
+                notes TEXT,
+                UNIQUE(resident_id, normalized_alias, alias_type),
+                FOREIGN KEY (resident_id) REFERENCES residents(id)
+            )
+            """
+        )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS authorized_people (
@@ -83,6 +127,7 @@ def initialize_database(database_path=DATABASE_PATH):
             """
         )
         ensure_column(connection, "authorized_people", "access_enabled", "INTEGER NOT NULL DEFAULT 1")
+        ensure_column(connection, "authorized_people", "resident_id", "INTEGER")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS face_observations (
@@ -152,6 +197,9 @@ def insert_access_event(
     face_observation_id=None,
     decision_source=None,
     decision_reason=None,
+    claimed_resident_name=None,
+    claimed_unit=None,
+    resolved_resident_id=None,
     database_path=DATABASE_PATH,
 ):
     initialize_database(database_path)
@@ -171,9 +219,12 @@ def insert_access_event(
                 face_match_confidence,
                 face_observation_id,
                 decision_source,
-                decision_reason
+                decision_reason,
+                claimed_resident_name,
+                claimed_unit,
+                resolved_resident_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 created_at,
@@ -188,6 +239,9 @@ def insert_access_event(
                 face_observation_id,
                 decision_source,
                 decision_reason,
+                claimed_resident_name,
+                claimed_unit,
+                resolved_resident_id,
             ),
         )
         connection.commit()
@@ -214,7 +268,10 @@ def get_recent_access_events(limit=10, database_path=DATABASE_PATH):
                 face_match_confidence,
                 face_observation_id,
                 decision_source,
-                decision_reason
+                decision_reason,
+                claimed_resident_name,
+                claimed_unit,
+                resolved_resident_id
             FROM access_events
             ORDER BY id DESC
             LIMIT ?
@@ -230,6 +287,7 @@ def insert_authorized_person(
     face_embedding_json=None,
     notes=None,
     access_enabled=True,
+    resident_id=None,
     created_at=None,
     database_path=DATABASE_PATH,
 ):
@@ -245,9 +303,10 @@ def insert_authorized_person(
                 reference_image_path,
                 face_embedding_json,
                 notes,
-                access_enabled
+                access_enabled,
+                resident_id
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 created_at,
@@ -256,6 +315,7 @@ def insert_authorized_person(
                 face_embedding_json,
                 notes,
                 int(bool(access_enabled)),
+                resident_id,
             ),
         )
         connection.commit()
@@ -276,7 +336,8 @@ def get_authorized_people(database_path=DATABASE_PATH):
                 reference_image_path,
                 face_embedding_json,
                 notes,
-                access_enabled
+                access_enabled,
+                resident_id
             FROM authorized_people
             ORDER BY id DESC
             """
@@ -323,6 +384,29 @@ def update_authorized_person_reference_image(
             """,
             (
                 reference_image_path,
+                person_id,
+            ),
+        )
+        connection.commit()
+        return cursor.rowcount
+
+
+def update_authorized_person_resident_id(
+    person_id,
+    resident_id,
+    database_path=DATABASE_PATH,
+):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            UPDATE authorized_people
+            SET resident_id = ?
+            WHERE id = ?
+            """,
+            (
+                resident_id,
                 person_id,
             ),
         )
@@ -455,3 +539,315 @@ def get_enabled_access_phrases(database_path=DATABASE_PATH):
             if phrase not in deduped_phrases:
                 deduped_phrases.append(phrase)
         return deduped_phrases
+
+
+def insert_resident(
+    full_name,
+    preferred_name=None,
+    apartment_unit=None,
+    building=None,
+    phone_primary=None,
+    phone_secondary=None,
+    ownership_share=None,
+    resident_role=None,
+    validation_status=None,
+    is_account_manager=None,
+    email_primary=None,
+    tax_id=None,
+    system_enrolled=None,
+    last_system_access=None,
+    source=None,
+    access_enabled=True,
+    notes=None,
+    created_at=None,
+    database_path=DATABASE_PATH,
+):
+    initialize_database(database_path)
+    created_at = created_at or datetime.now().isoformat(timespec="seconds")
+    updated_at = created_at
+
+    with get_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO residents (
+                created_at,
+                updated_at,
+                full_name,
+                preferred_name,
+                apartment_unit,
+                building,
+                phone_primary,
+                phone_secondary,
+                ownership_share,
+                resident_role,
+                validation_status,
+                is_account_manager,
+                email_primary,
+                tax_id,
+                system_enrolled,
+                last_system_access,
+                source,
+                access_enabled,
+                notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                created_at,
+                updated_at,
+                full_name,
+                preferred_name,
+                apartment_unit,
+                building,
+                phone_primary,
+                phone_secondary,
+                ownership_share,
+                resident_role,
+                validation_status,
+                None if is_account_manager is None else int(bool(is_account_manager)),
+                email_primary,
+                tax_id,
+                None if system_enrolled is None else int(bool(system_enrolled)),
+                last_system_access,
+                source,
+                int(bool(access_enabled)),
+                notes,
+            ),
+        )
+        connection.commit()
+        return cursor.lastrowid
+
+
+def find_matching_resident(
+    full_name,
+    apartment_unit=None,
+    email_primary=None,
+    phone_primary=None,
+    database_path=DATABASE_PATH,
+):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        candidates = connection.execute(
+            """
+            SELECT *
+            FROM residents
+            WHERE full_name = ?
+              AND COALESCE(apartment_unit, '') = COALESCE(?, '')
+            ORDER BY id DESC
+            """,
+            (
+                full_name,
+                apartment_unit,
+            ),
+        ).fetchall()
+
+        if not candidates:
+            return None
+
+        if email_primary or phone_primary:
+            for candidate in candidates:
+                if email_primary and candidate["email_primary"] == email_primary:
+                    return dict(candidate)
+                if phone_primary and candidate["phone_primary"] == phone_primary:
+                    return dict(candidate)
+
+        return dict(candidates[0])
+
+
+def upsert_resident(
+    full_name,
+    preferred_name=None,
+    apartment_unit=None,
+    building=None,
+    phone_primary=None,
+    phone_secondary=None,
+    ownership_share=None,
+    resident_role=None,
+    validation_status=None,
+    is_account_manager=None,
+    email_primary=None,
+    tax_id=None,
+    system_enrolled=None,
+    last_system_access=None,
+    source=None,
+    access_enabled=True,
+    notes=None,
+    database_path=DATABASE_PATH,
+):
+    existing = find_matching_resident(
+        full_name=full_name,
+        apartment_unit=apartment_unit,
+        email_primary=email_primary,
+        phone_primary=phone_primary,
+        database_path=database_path,
+    )
+    if existing:
+        updates = {
+            "preferred_name": preferred_name,
+            "building": building,
+            "phone_primary": phone_primary,
+            "phone_secondary": phone_secondary,
+            "ownership_share": ownership_share,
+            "resident_role": resident_role,
+            "validation_status": validation_status,
+            "is_account_manager": (
+                None if is_account_manager is None else int(bool(is_account_manager))
+            ),
+            "email_primary": email_primary,
+            "tax_id": tax_id,
+            "system_enrolled": (
+                None if system_enrolled is None else int(bool(system_enrolled))
+            ),
+            "last_system_access": last_system_access,
+            "source": source,
+            "access_enabled": int(bool(access_enabled)),
+            "notes": notes,
+        }
+        changed_columns = []
+        changed_values = []
+        for column_name, candidate_value in updates.items():
+            if candidate_value in (None, ""):
+                continue
+            existing_value = existing.get(column_name)
+            if str(existing_value or "") == str(candidate_value):
+                continue
+            changed_columns.append(f"{column_name} = ?")
+            changed_values.append(candidate_value)
+
+        if changed_columns:
+            changed_columns.append("updated_at = ?")
+            changed_values.append(datetime.now().isoformat(timespec="seconds"))
+            changed_values.append(existing["id"])
+            initialize_database(database_path)
+            with get_connection(database_path) as connection:
+                connection.execute(
+                    f"""
+                    UPDATE residents
+                    SET {", ".join(changed_columns)}
+                    WHERE id = ?
+                    """,
+                    tuple(changed_values),
+                )
+                connection.commit()
+        return existing["id"], False
+
+    resident_id = insert_resident(
+        full_name=full_name,
+        preferred_name=preferred_name,
+        apartment_unit=apartment_unit,
+        building=building,
+        phone_primary=phone_primary,
+        phone_secondary=phone_secondary,
+        ownership_share=ownership_share,
+        resident_role=resident_role,
+        validation_status=validation_status,
+        is_account_manager=is_account_manager,
+        email_primary=email_primary,
+        tax_id=tax_id,
+        system_enrolled=system_enrolled,
+        last_system_access=last_system_access,
+        source=source,
+        access_enabled=access_enabled,
+        notes=notes,
+        database_path=database_path,
+    )
+    return resident_id, True
+
+
+def get_residents(database_path=DATABASE_PATH):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        cursor = connection.execute(
+            """
+            SELECT
+                id,
+                created_at,
+                updated_at,
+                full_name,
+                preferred_name,
+                apartment_unit,
+                building,
+                phone_primary,
+                phone_secondary,
+                ownership_share,
+                resident_role,
+                validation_status,
+                is_account_manager,
+                email_primary,
+                tax_id,
+                system_enrolled,
+                last_system_access,
+                source,
+                access_enabled,
+                notes
+            FROM residents
+            ORDER BY id DESC
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def insert_resident_alias(
+    resident_id,
+    alias_text,
+    alias_type="name",
+    notes=None,
+    created_at=None,
+    database_path=DATABASE_PATH,
+):
+    initialize_database(database_path)
+    created_at = created_at or datetime.now().isoformat(timespec="seconds")
+    normalized_alias = normalize_phrase_text(alias_text)
+
+    with get_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT OR IGNORE INTO resident_aliases (
+                created_at,
+                resident_id,
+                alias_text,
+                normalized_alias,
+                alias_type,
+                notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                created_at,
+                resident_id,
+                alias_text,
+                normalized_alias,
+                alias_type,
+                notes,
+            ),
+        )
+        connection.commit()
+        return cursor.lastrowid
+
+
+def get_resident_aliases(database_path=DATABASE_PATH):
+    initialize_database(database_path)
+
+    with get_connection(database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        cursor = connection.execute(
+            """
+            SELECT
+                a.id,
+                a.created_at,
+                a.resident_id,
+                r.full_name AS resident_name,
+                a.alias_text,
+                a.normalized_alias,
+                a.alias_type,
+                a.notes
+            FROM resident_aliases a
+            JOIN residents r ON r.id = a.resident_id
+            ORDER BY a.id DESC
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]

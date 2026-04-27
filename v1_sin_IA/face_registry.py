@@ -8,6 +8,7 @@ try:
         insert_authorized_person,
         insert_face_observation,
         set_authorized_person_access,
+        update_authorized_person_resident_id,
         update_authorized_person_reference_image,
     )
 except ModuleNotFoundError:
@@ -18,15 +19,17 @@ except ModuleNotFoundError:
         insert_authorized_person,
         insert_face_observation,
         set_authorized_person_access,
+        update_authorized_person_resident_id,
         update_authorized_person_reference_image,
     )
 
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/face_registry.py add-person <nombre> [reference_image_path] [allow|deny]")
+    print("  python3 v1_sin_IA/face_registry.py add-person <nombre> [reference_image_path] [allow|deny] [resident_id]")
     print("  python3 v1_sin_IA/face_registry.py list-people")
     print("  python3 v1_sin_IA/face_registry.py set-access <person_id> <allow|deny>")
+    print("  python3 v1_sin_IA/face_registry.py set-resident <person_id> <resident_id>")
     print("  python3 v1_sin_IA/face_registry.py update-reference-image <person_id> <reference_image_path>")
     print("  python3 v1_sin_IA/face_registry.py remove-person <person_id>")
     print("  python3 v1_sin_IA/face_registry.py add-observation [image_path] [notes]")
@@ -41,15 +44,19 @@ def add_person(args):
     name = args[0]
     reference_image_path = args[1] if len(args) > 1 else None
     access_enabled = True
+    resident_id = None
 
     if len(args) > 2:
         access_enabled = args[2].lower() != "deny"
+    if len(args) > 3:
+        resident_id = int(args[3])
 
     person_id = insert_authorized_person(
         name=name,
         reference_image_path=reference_image_path,
         notes="manual_registry_entry",
         access_enabled=access_enabled,
+        resident_id=resident_id,
     )
     print(f"Persona autorizada guardada con id={person_id}")
 
@@ -64,6 +71,7 @@ def list_people():
         print(f"id: {person['id']}")
         print(f"name: {person['name']}")
         print(f"created_at: {person['created_at']}")
+        print(f"resident_id: {person.get('resident_id') or '-'}")
         print(f"reference_image_path: {person['reference_image_path'] or '-'}")
         print(f"access_enabled: {bool(person.get('access_enabled', 1))}")
         print(f"notes: {person['notes'] or '-'}")
@@ -136,6 +144,30 @@ def update_reference_image(args):
     )
 
 
+def set_resident(args):
+    if len(args) != 2:
+        print_usage()
+        sys.exit(1)
+
+    try:
+        person_id = int(args[0])
+        resident_id = int(args[1])
+    except ValueError:
+        print("person_id y resident_id deben ser numericos.")
+        sys.exit(1)
+
+    updated_rows = update_authorized_person_resident_id(
+        person_id=person_id,
+        resident_id=resident_id,
+    )
+
+    if updated_rows == 0:
+        print(f"No existe una persona con id={person_id}.")
+        sys.exit(1)
+
+    print(f"Persona id={person_id} vinculada a resident_id={resident_id}.")
+
+
 def remove_person(args):
     if len(args) != 1:
         print_usage()
@@ -203,6 +235,10 @@ def main():
 
     if command == "update-reference-image":
         update_reference_image(args)
+        return
+
+    if command == "set-resident":
+        set_resident(args)
         return
 
     if command == "remove-person":

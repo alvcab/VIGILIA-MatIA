@@ -2,27 +2,37 @@ from pathlib import Path
 import subprocess
 import sys
 
-from gtts import gTTS
-
-
 DEFAULT_OUTPUT_PATH = Path("/tmp/vigilia_prompt.wav")
-DEFAULT_TEXT = "Hola, te escucha Vigilia. Por favor, di tu solicitud después del tono."
+DEFAULT_TEXT = "Hola."
 
 
 def build_greeting(text, output_path):
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_mp3_path = output_path.with_suffix(".mp3")
+    temp_audio_path = output_path.with_suffix(".aiff")
 
-    tts = gTTS(text=text, lang="es")
-    tts.save(str(temp_mp3_path))
+    say_result = subprocess.run(
+        [
+            "say",
+            "-v",
+            "Monica",
+            "-o",
+            str(temp_audio_path),
+            text,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    if say_result.returncode != 0:
+        raise RuntimeError("could_not_generate_greeting_with_say")
 
     subprocess.run(
         [
             "ffmpeg",
             "-y",
             "-i",
-            str(temp_mp3_path),
+            str(temp_audio_path),
             "-ar",
             "8000",
             "-ac",
@@ -33,7 +43,7 @@ def build_greeting(text, output_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    temp_mp3_path.unlink(missing_ok=True)
+    temp_audio_path.unlink(missing_ok=True)
     return output_path
 
 

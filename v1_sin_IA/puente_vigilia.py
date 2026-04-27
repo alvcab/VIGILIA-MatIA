@@ -1,4 +1,3 @@
-import whisper
 import subprocess
 import sys
 import json
@@ -7,26 +6,48 @@ import re
 import socket
 import unicodedata
 import time
+import signal
+import importlib
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
-from gtts import gTTS
 
 try:
-    from v1_sin_IA.event_store import get_enabled_access_phrases, insert_access_event
+    from v1_sin_IA.event_store import (
+        get_enabled_access_phrases,
+        get_resident_aliases,
+        get_residents,
+        insert_access_event,
+    )
     from v1_sin_IA.vto_camera import capture_snapshot
 except ModuleNotFoundError:
-    from event_store import get_enabled_access_phrases, insert_access_event
+    from event_store import (
+        get_enabled_access_phrases,
+        get_resident_aliases,
+        get_residents,
+        insert_access_event,
+    )
     from vto_camera import capture_snapshot
 
 
-VTO_IP = "192.168.100.108"
-VTO_USER = "admin"
-VTO_PASS = "Splitreset6901"
+VTO_IP = os.environ.get("VTO_IP", "192.168.100.108")
+VTO_USER = os.environ.get("VTO_USER", "admin")
+VTO_PASS = os.environ.get("VTO_PASS", "Splitreset6901")
+VTO_GATE_CHANNEL = int(os.environ.get("VTO_GATE_CHANNEL", "1"))
+VTO_GATE_TIMEOUT_SECONDS = float(os.environ.get("VTO_GATE_TIMEOUT_SECONDS", "6"))
+VTO_GATE_REMOTE_USER_ID = os.environ.get("VTO_GATE_REMOTE_USER_ID", "101")
 FACE_ENV_PYTHON = Path.home() / "miniforge3" / "envs" / "vigilia-face" / "bin" / "python"
 FACE_RECOGNIZER_SCRIPT = Path(__file__).with_name("reconocer_rostro.py")
 INFERENCE_SOCKET_PATH = Path("/tmp/vigilia_inference.sock")
 DEFAULT_RESPONSE_AUDIO_PATH = Path("/tmp/ia_dice.wav")
+MODEL_TIMEOUT_SECONDS = float(os.environ.get("VIGILIA_MODEL_TIMEOUT_SECONDS", "10"))
+INFERENCE_SERVICE_TIMEOUT_SECONDS = float(
+    os.environ.get("VIGILIA_INFERENCE_SERVICE_TIMEOUT_SECONDS", "8")
+)
+AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS = int(os.environ.get("VIGILIA_AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS", "12"))
+AUDIO_TARGET_MAX_DB = float(os.environ.get("VIGILIA_AUDIO_TARGET_MAX_DB", "-3"))
+AUDIO_MAX_GAIN_DB = float(os.environ.get("VIGILIA_AUDIO_MAX_GAIN_DB", "24"))
+TTS_TIMEOUT_SECONDS = float(os.environ.get("VIGILIA_TTS_TIMEOUT_SECONDS", "6"))
 VALID_MODEL_TOKENS = {"OPEN", "ERROR", "HOLA"}
 VOICE_OPEN_KEYWORDS = (
     "abre",
@@ -55,8 +76,51 @@ VOICE_OPEN_PHRASES = (
     "deja pasar",
 )
 VOICE_OPEN_FUZZY_THRESHOLD = 0.72
+VOICE_OPEN_KEYWORD_FUZZY_THRESHOLD = 0.78
 FACE_RETRY_ON_OPEN_REQUESTS = 2
 FACE_BORDERLINE_DISTANCE_MARGIN = 0.10
+FACE_KNOWN_RESIDENT_EXTENDED_MARGIN = float(
+    os.environ.get("VIGILIA_FACE_KNOWN_RESIDENT_EXTENDED_MARGIN", "0.15")
+)
+CLAIMED_UNIT_PATTERNS = (
+    r"\b(?:depto|departamento|dpto|depa|unidad)\s+([a-z0-9-]+)\b",
+    r"\b(?:torre|block|bloque)\s+([a-z0-9-]+)\b",
+)
+whisper = None
+
+
+def build_gate_open_url(channel=VTO_GATE_CHANNEL, remote_user_id=None, remote_type=None):
+    url = f"http://{VTO_IP}/cgi-bin/accessControl.cgi?action=openDoor&channel={channel}"
+    if remote_user_id is not None:
+        url = f"{url}&UserID={remote_user_id}"
+    if remote_type is not None:
+        url = f"{url}&Type={remote_type}"
+    return url
+
+
+def build_gate_open_urls(channel=VTO_GATE_CHANNEL):
+    return (
+        build_gate_open_url(channel=channel),
+        build_gate_open_url(
+            channel=channel,
+            remote_user_id=VTO_GATE_REMOTE_USER_ID,
+            remote_type="Remote",
+        ),
+    )
+
+
+def get_whisper_module():
+    global whisper
+    if whisper is not None:
+        return whisper
+
+    try:
+        whisper = importlib.import_module("whisper")
+        return whisper
+    except KeyboardInterrupt as exc:
+        raise RuntimeError("local_transcription_import_interrupted") from exc
+    except Exception as exc:
+        raise RuntimeError("local_transcription_import_failed") from exc
 
 # Función para que la IA "hable"
 def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
@@ -64,42 +128,111 @@ def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     print(f"IA dice: {texto}")
     response_audio_path = Path(response_audio_path)
     response_audio_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_aiff_path = response_audio_path.with_suffix(".aiff")
     temp_mp3_path = response_audio_path.with_suffix(".mp3")
 
-    # Genera el audio
-    tts = gTTS(text=texto, lang='es')
-    tts.save(str(temp_mp3_path))
-    # Convierte a formato Asterisk (WAV mono, 8000Hz)
-    subprocess.run([
-        'ffmpeg', '-y', '-i', str(temp_mp3_path),
-        '-ar', '8000', '-ac', '1', str(response_audio_path)
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    temp_mp3_path.unlink(missing_ok=True)
+    source_audio_path = None
+    try:
+        say_result = subprocess.run(
+            [
+                "say",
+                "-v",
+                "Monica",
+                "-o",
+                str(temp_aiff_path),
+                texto,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=TTS_TIMEOUT_SECONDS,
+        )
+
+        if say_result.returncode == 0 and temp_aiff_path.exists():
+            source_audio_path = temp_aiff_path
+        else:
+            try:
+                from gtts import gTTS
+            except ModuleNotFoundError as exc:
+                raise RuntimeError("local_tts_failed_and_gtts_not_installed") from exc
+
+            tts = gTTS(text=texto, lang="es")
+            tts.save(str(temp_mp3_path))
+            source_audio_path = temp_mp3_path
+
+        subprocess.run([
+            'ffmpeg', '-y', '-i', str(source_audio_path),
+            '-ar', '8000', '-ac', '1', str(response_audio_path)
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=TTS_TIMEOUT_SECONDS, check=True)
+    except Exception as exc:
+        print(f"[TTS] fallback error={exc}")
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=8000:cl=mono",
+                "-t",
+                "0.5",
+                str(response_audio_path),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    finally:
+        temp_aiff_path.unlink(missing_ok=True)
+        temp_mp3_path.unlink(missing_ok=True)
+
     print(f"[TIMING] tts_seconds={time.perf_counter() - started_at:.3f}")
 
 def ejecutar_porton(response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     started_at = time.perf_counter()
-    result = subprocess.run(
-        [
-            "curl",
-            "-sS",
-            "--digest",
-            "-u",
-            f"{VTO_USER}:{VTO_PASS}",
-            f"http://{VTO_IP}/cgi-bin/accessControl.cgi?action=openDoor&channel=1",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    gate_opened = False
 
-    response_text = result.stdout.strip()
-    gate_opened = result.returncode == 0 and response_text == "OK"
+    for attempt_index, gate_url in enumerate(build_gate_open_urls(), start=1):
+        try:
+            result = subprocess.run(
+                [
+                    "curl",
+                    "-sS",
+                    "--digest",
+                    "-u",
+                    f"{VTO_USER}:{VTO_PASS}",
+                    gate_url,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=VTO_GATE_TIMEOUT_SECONDS,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            print(f"[GATE] ip={VTO_IP} channel={VTO_GATE_CHANNEL} attempt={attempt_index}")
+            print(f"[GATE] url={gate_url}")
+            print("[GATE] error: timeout")
+            continue
+        except Exception as exc:
+            print(f"[GATE] ip={VTO_IP} channel={VTO_GATE_CHANNEL} attempt={attempt_index}")
+            print(f"[GATE] url={gate_url}")
+            print(f"[GATE] error: {exc}")
+            continue
 
-    if response_text:
-        print(f"[GATE] stdout: {response_text}")
-    if result.stderr.strip():
-        print(f"[GATE] stderr: {result.stderr.strip()}")
-    print(f"[GATE] opened: {gate_opened}")
+        response_text = result.stdout.strip()
+        gate_opened = result.returncode == 0 and response_text == "OK"
+
+        print(f"[GATE] ip={VTO_IP} channel={VTO_GATE_CHANNEL} attempt={attempt_index}")
+        print(f"[GATE] url={gate_url}")
+        if response_text:
+            print(f"[GATE] stdout: {response_text}")
+        if result.stderr.strip():
+            print(f"[GATE] stderr: {result.stderr.strip()}")
+        print(f"[GATE] opened: {gate_opened}")
+
+        if gate_opened:
+            break
+
     print(f"[TIMING] gate_request_seconds={time.perf_counter() - started_at:.3f}")
 
     if gate_opened:
@@ -116,6 +249,10 @@ def try_capture_snapshot():
         snapshot_path = capture_snapshot()
         print(f"[TIMING] snapshot_seconds={time.perf_counter() - started_at:.3f}")
         return str(snapshot_path), None
+    except KeyboardInterrupt:
+        print(f"[TIMING] snapshot_seconds={time.perf_counter() - started_at:.3f}")
+        print("[VTO] Snapshot interrupted")
+        return None, "snapshot_interrupted"
     except Exception as exc:
         print(f"[TIMING] snapshot_seconds={time.perf_counter() - started_at:.3f}")
         print(f"[VTO] Snapshot failed: {exc}")
@@ -149,6 +286,10 @@ def try_face_recognition(snapshot_path):
         print("[FACE] error: timeout")
         print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
         return None, "face_recognition_timeout"
+    except KeyboardInterrupt:
+        print("[FACE] error: interrupted")
+        print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
+        return None, "face_recognition_interrupted"
     except Exception as exc:
         print(f"[FACE] error: {exc}")
         print(f"[TIMING] face_recognition_seconds={time.perf_counter() - started_at:.3f}")
@@ -225,9 +366,29 @@ def retry_face_recognition_for_open_request(visitor_text, face_result, face_erro
     return best_face_result, best_face_error, retry_snapshot_path
 
 
-def build_denial_message(visitor_text, face_error):
+def build_denial_message(visitor_text, face_error, resident_context=None):
+    resident_context = resident_context or {}
+    claimed_resident_name = resident_context.get("claimed_resident_name")
+    claimed_unit = resident_context.get("claimed_unit")
+
     if detect_open_request(visitor_text) and face_error and "face_encoding_not_found" in face_error:
         return "No logro verte bien. Acercate a la camara, mira de frente y vuelve a intentarlo."
+
+    if detect_open_request(visitor_text) and not has_claimed_resident_context(resident_context):
+        return "Para autorizar la apertura, dime a que residente o departamento vienes."
+
+    if detect_open_request(visitor_text) and claimed_resident_name:
+        return (
+            f"No puedo autorizar la apertura para {claimed_resident_name} todavia. "
+            "Acercate a la camara, mira de frente y vuelve a intentarlo."
+        )
+
+    if detect_open_request(visitor_text) and claimed_unit:
+        return (
+            f"No puedo autorizar la apertura para la unidad {claimed_unit} todavia. "
+            "Acercate a la camara, mira de frente y vuelve a intentarlo."
+        )
+
     return "Lo siento, no tengo autorización para abrir el portón."
 
 
@@ -270,11 +431,21 @@ def query_access_model(visitor_text, face_result):
     prompt = build_decision_prompt(visitor_text=visitor_text, face_result=face_result)
     print(f"[MODEL] prompt:\n{prompt}")
 
-    result = subprocess.run(
-        ["ollama", "run", "vigilia-mini", prompt],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["ollama", "run", "vigilia-mini", prompt],
+            capture_output=True,
+            text=True,
+            timeout=MODEL_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        print(
+            "[MODEL] timeout "
+            f"seconds={MODEL_TIMEOUT_SECONDS:.3f} "
+            "model=vigilia-mini"
+        )
+        print(f"[TIMING] model_seconds={time.perf_counter() - started_at:.3f}")
+        raise RuntimeError("ollama_query_timeout") from exc
 
     if result.returncode != 0:
         stderr_text = result.stderr.strip()
@@ -365,14 +536,44 @@ def fuzzy_contains_phrase(text, phrase, threshold=VOICE_OPEN_FUZZY_THRESHOLD):
     return False
 
 
+def fuzzy_matches_keyword(text, keywords, threshold=VOICE_OPEN_KEYWORD_FUZZY_THRESHOLD):
+    text_words = text.split()
+    if not text_words:
+        return False
+
+    for word in text_words:
+        for keyword in keywords:
+            if SequenceMatcher(None, word, keyword).ratio() >= threshold:
+                return True
+    return False
+
+
+def token_overlap_open_phrase(text, phrases):
+    text_words = set(text.split())
+    if not text_words:
+        return False
+
+    for phrase in phrases:
+        phrase_words = set(phrase.split())
+        if len(phrase_words & text_words) >= 3:
+            return True
+    return False
+
+
 def detect_open_request(visitor_text):
     normalized_text = normalize_spanish_text(visitor_text)
 
     if any(keyword in normalized_text for keyword in VOICE_OPEN_KEYWORDS):
         return True
 
+    if fuzzy_matches_keyword(normalized_text, VOICE_OPEN_KEYWORDS):
+        return True
+
     known_access_phrases = get_enabled_access_phrases()
     if normalized_text in known_access_phrases:
+        return True
+
+    if token_overlap_open_phrase(normalized_text, known_access_phrases):
         return True
 
     return any(
@@ -381,14 +582,120 @@ def detect_open_request(visitor_text):
     )
 
 
+def normalize_unit_text(unit_text):
+    return normalize_spanish_text(unit_text or "")
+
+
+def resident_name_candidates(resident):
+    candidates = []
+    for field_name in ("preferred_name", "full_name"):
+        normalized_value = normalize_spanish_text(resident.get(field_name) or "")
+        if normalized_value and normalized_value not in candidates:
+            candidates.append(normalized_value)
+    return candidates
+
+
+def resolve_claimed_resident_context(
+    visitor_text,
+    residents=None,
+    resident_aliases=None,
+):
+    normalized_text = normalize_spanish_text(visitor_text)
+    if not normalized_text:
+        return {
+            "claimed_resident_name": None,
+            "claimed_unit": None,
+            "resolved_resident_id": None,
+        }
+
+    residents = residents if residents is not None else get_residents()
+    resident_aliases = (
+        resident_aliases if resident_aliases is not None else get_resident_aliases()
+    )
+
+    residents_by_id = {resident["id"]: resident for resident in residents}
+    residents_by_unit = {}
+    for resident in residents:
+        normalized_unit = normalize_unit_text(resident.get("apartment_unit"))
+        if not normalized_unit:
+            continue
+        residents_by_unit.setdefault(normalized_unit, []).append(resident["id"])
+
+    matched_name_ids = []
+    matched_unit_ids = []
+
+    padded_text = f" {normalized_text} "
+    for alias in resident_aliases:
+        normalized_alias = alias.get("normalized_alias")
+        if not normalized_alias:
+            continue
+        if f" {normalized_alias} " not in padded_text:
+            continue
+        resident_id = alias["resident_id"]
+        alias_type = alias.get("alias_type") or "name"
+        if alias_type == "unit":
+            matched_unit_ids.append(resident_id)
+        else:
+            matched_name_ids.append(resident_id)
+
+    if not matched_name_ids:
+        for resident in residents:
+            for normalized_candidate in resident_name_candidates(resident):
+                if f" {normalized_candidate} " in padded_text:
+                    matched_name_ids.append(resident["id"])
+                    break
+
+    extracted_units = []
+    for pattern in CLAIMED_UNIT_PATTERNS:
+        for match in re.finditer(pattern, normalized_text):
+            extracted_units.append(normalize_unit_text(match.group(1)))
+
+    explicit_unit_ids = []
+    for extracted_unit in extracted_units:
+        explicit_unit_ids.extend(residents_by_unit.get(extracted_unit, []))
+
+    unique_name_ids = sorted(set(matched_name_ids))
+    unique_unit_ids = sorted(set(matched_unit_ids + explicit_unit_ids))
+    all_candidate_ids = sorted(set(unique_name_ids + unique_unit_ids))
+
+    claimed_resident_name = None
+    if len(unique_name_ids) == 1:
+        claimed_resident_name = residents_by_id[unique_name_ids[0]]["full_name"]
+
+    claimed_unit = None
+    if extracted_units:
+        claimed_unit = extracted_units[0]
+    elif len(unique_unit_ids) == 1:
+        claimed_unit = residents_by_id[unique_unit_ids[0]].get("apartment_unit")
+        claimed_unit = normalize_unit_text(claimed_unit)
+
+    resolved_resident_id = None
+    if len(all_candidate_ids) == 1:
+        resolved_resident_id = all_candidate_ids[0]
+
+    if resolved_resident_id and claimed_resident_name is None:
+        claimed_resident_name = residents_by_id[resolved_resident_id]["full_name"]
+
+    if resolved_resident_id and claimed_unit is None:
+        claimed_unit = normalize_unit_text(
+            residents_by_id[resolved_resident_id].get("apartment_unit")
+        )
+
+    return {
+        "claimed_resident_name": claimed_resident_name,
+        "claimed_unit": claimed_unit,
+        "resolved_resident_id": resolved_resident_id,
+    }
+
+
 def classify_face_match_band(face_result):
     if not face_result:
         return "unknown"
-    if not face_result.get("matched"):
-        return "low"
     distance = face_result.get("distance")
     tolerance = face_result.get("tolerance")
     if distance is None or tolerance is None:
+        if not face_result.get("matched"):
+            return "low"
         return "unknown"
 
     distance = float(distance)
@@ -404,6 +711,21 @@ def has_trusted_face_match(face_result):
     return classify_face_match_band(face_result) == "trusted"
 
 
+def has_known_resident_extended_face_match(face_result):
+    if not face_result:
+        return False
+    person = face_result.get("person") or {}
+    if person.get("resident_id") is None:
+        return False
+
+    distance = face_result.get("distance")
+    tolerance = face_result.get("tolerance")
+    if distance is None or tolerance is None:
+        return False
+
+    return float(distance) <= float(tolerance) + FACE_KNOWN_RESIDENT_EXTENDED_MARGIN
+
+
 def face_match_is_access_enabled(face_result):
     if not face_result:
         return False
@@ -411,19 +733,152 @@ def face_match_is_access_enabled(face_result):
     return bool(person.get("access_enabled", 1))
 
 
-def resolve_access_decision(visitor_text, face_result, model_response):
+def face_match_is_known_resident(face_result):
+    if not face_result:
+        return False
+    person = face_result.get("person") or {}
+    return person.get("resident_id") is not None
+
+
+def face_result_resident_matches_claim(face_result, resident_context):
+    if not face_result or not resident_context:
+        return False
+    person = face_result.get("person") or {}
+    claimed_resident_id = resident_context.get("resolved_resident_id")
+    if claimed_resident_id is None:
+        return False
+    return person.get("resident_id") == claimed_resident_id
+
+
+def has_claimed_resident_context(resident_context):
+    resident_context = resident_context or {}
+    return bool(
+        resident_context.get("claimed_resident_name")
+        or resident_context.get("claimed_unit")
+        or resident_context.get("resolved_resident_id")
+    )
+
+
+def has_meaningful_speech(visitor_text):
+    normalized_text = normalize_spanish_text(visitor_text)
+    if not normalized_text:
+        return False
+
+    words = normalized_text.split()
+    if len(words) >= 3:
+        return True
+
+    return len(normalized_text) >= 12
+
+
+def resolve_model_unavailable_fallback(visitor_text, face_result, resident_context=None):
+    resident_context = resident_context or {}
+    access_enabled_face_match = face_match_is_access_enabled(face_result)
+    known_resident_face_match = face_match_is_known_resident(face_result)
+    has_resident_context = has_claimed_resident_context(resident_context)
+    strong_known_resident_match = (
+        has_trusted_face_match(face_result)
+        or has_known_resident_extended_face_match(face_result)
+    )
+
+    if (
+        has_meaningful_speech(visitor_text)
+        and strong_known_resident_match
+        and access_enabled_face_match
+        and known_resident_face_match
+        and not has_resident_context
+    ):
+        return {
+            "should_open": True,
+            "source": "resident_context",
+            "reason": "model_unavailable_but_known_resident_face_and_speech_present",
+        }
+
+    return {
+        "should_open": False,
+        "source": "model_response",
+        "reason": "model_unavailable_fallback",
+    }
+
+
+def resolve_access_decision(visitor_text, face_result, model_response, resident_context=None):
     voice_requests_open = detect_open_request(visitor_text)
     face_match_band = classify_face_match_band(face_result)
     trusted_face_match = has_trusted_face_match(face_result)
     access_enabled_face_match = face_match_is_access_enabled(face_result)
+    known_resident_face_match = face_match_is_known_resident(face_result)
     normalized_model_token = normalize_model_token(model_response)
+    resident_context = resident_context or {}
+    resident_context_match = face_result_resident_matches_claim(
+        face_result=face_result,
+        resident_context=resident_context,
+    )
+    has_resident_context = has_claimed_resident_context(resident_context)
 
-    if voice_requests_open and trusted_face_match and access_enabled_face_match:
+    if (
+        voice_requests_open
+        and trusted_face_match
+        and access_enabled_face_match
+        and resident_context_match
+    ):
         return {
             "should_open": True,
-            "source": "hybrid_policy",
+            "source": "resident_context",
             "reason": (
-                "voice_requested_open_and_face_match_within_tolerance_and_whitelisted"
+                "voice_requested_open_and_claimed_resident_matches_trusted_face"
+            ),
+        }
+
+    if (
+        voice_requests_open
+        and trusted_face_match
+        and access_enabled_face_match
+        and known_resident_face_match
+        and not has_resident_context
+    ):
+        return {
+            "should_open": True,
+            "source": "resident_context",
+            "reason": "voice_requested_open_and_known_resident_face_match",
+        }
+
+    if (
+        voice_requests_open
+        and face_match_band == "borderline"
+        and access_enabled_face_match
+        and known_resident_face_match
+        and not has_resident_context
+    ):
+        return {
+            "should_open": True,
+            "source": "resident_context",
+            "reason": "voice_requested_open_and_known_resident_borderline_face_match",
+        }
+
+    if (
+        voice_requests_open
+        and has_known_resident_extended_face_match(face_result)
+        and access_enabled_face_match
+        and known_resident_face_match
+        and not has_resident_context
+    ):
+        return {
+            "should_open": True,
+            "source": "resident_context",
+            "reason": "voice_requested_open_and_known_resident_extended_face_match",
+        }
+
+    if (
+        voice_requests_open
+        and resident_context_match
+        and face_match_band == "borderline"
+        and access_enabled_face_match
+    ):
+        return {
+            "should_open": True,
+            "source": "resident_context",
+            "reason": (
+                "voice_requested_open_and_claimed_resident_matches_borderline_face"
             ),
         }
 
@@ -434,11 +889,18 @@ def resolve_access_decision(visitor_text, face_result, model_response):
             "reason": "voice_requested_open_but_face_match_within_tolerance_not_whitelisted",
         }
 
+    if voice_requests_open and trusted_face_match and access_enabled_face_match:
+        return {
+            "should_open": False,
+            "source": "resident_context",
+            "reason": "voice_requested_open_but_claimed_resident_does_not_match_face",
+        }
+
     if voice_requests_open and normalized_model_token == "OPEN":
         return {
-            "should_open": True,
-            "source": "hybrid_policy",
-            "reason": "voice_requested_open_and_model_returned_open",
+            "should_open": False,
+            "source": "resident_context",
+            "reason": "voice_requested_open_but_model_open_without_resident_match",
         }
 
     if voice_requests_open and face_match_band == "borderline":
@@ -483,11 +945,18 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     created_at = datetime.now().isoformat(timespec="seconds")
     started_at = time.perf_counter()
     snapshot_path, snapshot_error = try_capture_snapshot()
-    result = transcribe_audio(ruta_audio)
+    transcription_error = None
+    try:
+        result = transcribe_audio(ruta_audio)
+    except Exception as exc:
+        transcription_error = str(exc)
+        print(f"[AUDIO] transcription_failed error={transcription_error}")
+        result = {"text": ""}
     face_result, face_error = try_face_recognition(snapshot_path)
 
     print(f"[TIMING] pre_decision_seconds={time.perf_counter() - started_at:.3f}")
     texto_vecino = result["text"].lower().strip()
+    resident_context = resolve_claimed_resident_context(texto_vecino)
     
     if not texto_vecino:
         decir(
@@ -501,16 +970,26 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             model_response=None,
             gate_opened=False,
             snapshot_path=snapshot_path,
-            error_message=combine_errors(snapshot_error, face_error),
+            error_message=combine_errors(snapshot_error, face_error, transcription_error),
             face_match_name=face_result.get("matched_person_name") if face_result else None,
             face_match_confidence=face_confidence(face_result),
             face_observation_id=face_result.get("observation_id") if face_result else None,
             decision_source="speech_capture",
             decision_reason="empty_transcript",
+            claimed_resident_name=resident_context["claimed_resident_name"],
+            claimed_unit=resident_context["claimed_unit"],
+            resolved_resident_id=resident_context["resolved_resident_id"],
         )
         return
 
     print(f"El vecino dijo: {texto_vecino}")
+    if any(resident_context.values()):
+        print(
+            "[RESIDENT] "
+            f"claimed_name={resident_context['claimed_resident_name']} "
+            f"claimed_unit={resident_context['claimed_unit']} "
+            f"resolved_resident_id={resident_context['resolved_resident_id']}"
+        )
 
     face_result, merged_face_error, retry_snapshot_path = retry_face_recognition_for_open_request(
         visitor_text=texto_vecino,
@@ -526,6 +1005,7 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
         visitor_text=texto_vecino,
         face_result=face_result,
         model_response=None,
+        resident_context=resident_context,
     )
 
     if pre_model_decision["source"] == "hybrid_policy":
@@ -542,7 +1022,11 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
         else:
             decir(
-                build_denial_message(texto_vecino, face_error),
+                build_denial_message(
+                    texto_vecino,
+                    face_error,
+                    resident_context=resident_context,
+                ),
                 response_audio_path=response_audio_path,
             )
 
@@ -559,6 +1043,9 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             face_observation_id=face_result.get("observation_id") if face_result else None,
             decision_source=pre_model_decision["source"],
             decision_reason=pre_model_decision["reason"],
+            claimed_resident_name=resident_context["claimed_resident_name"],
+            claimed_unit=resident_context["claimed_unit"],
+            resolved_resident_id=resident_context["resolved_resident_id"],
         )
         return
     
@@ -572,6 +1059,7 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             visitor_text=texto_vecino,
             face_result=face_result,
             model_response=respuesta_ia,
+            resident_context=resident_context,
         )
         gate_opened = False
 
@@ -586,7 +1074,11 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
         else:
             decir(
-                build_denial_message(texto_vecino, face_error),
+                build_denial_message(
+                    texto_vecino,
+                    face_error,
+                    resident_context=resident_context,
+                ),
                 response_audio_path=response_audio_path,
             )
 
@@ -603,48 +1095,98 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             face_observation_id=face_result.get("observation_id") if face_result else None,
             decision_source=decision["source"],
             decision_reason=decision["reason"],
+            claimed_resident_name=resident_context["claimed_resident_name"],
+            claimed_unit=resident_context["claimed_unit"],
+            resolved_resident_id=resident_context["resolved_resident_id"],
         )
-    except Exception:
-        decir(
-            "Hubo un error en mi sistema, intenta más tarde.",
-            response_audio_path=response_audio_path,
+    except Exception as exc:
+        print(f"[MODEL] fallback error={exc}")
+        decision = resolve_model_unavailable_fallback(
+            visitor_text=texto_vecino,
+            face_result=face_result,
+            resident_context=resident_context,
         )
+        print(
+            "[DECISION] "
+            f"source={decision['source']} "
+            f"reason={decision['reason']} "
+            f"should_open={decision['should_open']} "
+            "stage=model_fallback"
+        )
+
+        gate_opened = False
+        if decision["should_open"]:
+            gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
+        else:
+            decir(
+                build_denial_message(
+                    texto_vecino,
+                    face_error,
+                    resident_context=resident_context,
+                ),
+                response_audio_path=response_audio_path,
+            )
+
         insert_access_event(
             created_at=created_at,
             audio_path=ruta_audio,
             transcript=texto_vecino,
             model_response=None,
-            gate_opened=False,
+            gate_opened=gate_opened,
             snapshot_path=snapshot_path,
             error_message=combine_errors(
                 snapshot_error,
                 face_error,
-                "ollama_or_processing_error",
+                str(exc),
             ),
             face_match_name=face_result.get("matched_person_name") if face_result else None,
             face_match_confidence=face_confidence(face_result),
             face_observation_id=face_result.get("observation_id") if face_result else None,
-            decision_source="system_error",
-            decision_reason="ollama_or_processing_error",
+            decision_source=decision["source"],
+            decision_reason=decision["reason"],
+            claimed_resident_name=resident_context["claimed_resident_name"],
+            claimed_unit=resident_context["claimed_unit"],
+            resolved_resident_id=resident_context["resolved_resident_id"],
         )
 
 
 def transcribe_audio(ruta_audio):
+    prepared_audio_path = prepare_audio_for_transcription(ruta_audio)
+
     service_payload = send_inference_request(
         action="transcribe",
-        payload={"audio_path": ruta_audio},
-        timeout_seconds=4,
+        payload={"audio_path": str(prepared_audio_path)},
+        timeout_seconds=INFERENCE_SERVICE_TIMEOUT_SECONDS,
     )
     if service_payload and service_payload.get("ok"):
         print(f"[TIMING] transcription_service_seconds={service_payload.get('timing_seconds', 0.0):.3f}")
         return {"text": service_payload["text"]}
 
     started_at = time.perf_counter()
-    model = whisper.load_model("tiny")
-    print(f"[TIMING] whisper_load_seconds={time.perf_counter() - started_at:.3f}")
+    previous_handler = signal.getsignal(signal.SIGALRM)
 
-    transcribe_started_at = time.perf_counter()
-    result = model.transcribe(ruta_audio, language="es")
+    def _raise_transcription_timeout(signum, frame):
+        raise TimeoutError("local_transcription_timeout")
+
+    signal.signal(signal.SIGALRM, _raise_transcription_timeout)
+    signal.alarm(AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS)
+    try:
+        whisper_module = get_whisper_module()
+        model = whisper_module.load_model("tiny")
+        print(f"[TIMING] whisper_load_seconds={time.perf_counter() - started_at:.3f}")
+
+        transcribe_started_at = time.perf_counter()
+        result = model.transcribe(str(prepared_audio_path), language="es")
+    except TimeoutError as exc:
+        print(f"[TIMING] whisper_total_seconds={time.perf_counter() - started_at:.3f}")
+        raise RuntimeError("local_transcription_timeout") from exc
+    except RuntimeError as exc:
+        print(f"[TIMING] whisper_total_seconds={time.perf_counter() - started_at:.3f}")
+        raise
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
+
     print(f"[TIMING] transcription_seconds={time.perf_counter() - transcribe_started_at:.3f}")
     print(f"[TIMING] whisper_total_seconds={time.perf_counter() - started_at:.3f}")
     return result
@@ -667,6 +1209,77 @@ def combine_errors(*values):
     if not filtered_values:
         return None
     return " | ".join(filtered_values)
+
+
+def measure_audio_max_volume(audio_path):
+    result = subprocess.run(
+        [
+            "ffmpeg",
+            "-i",
+            str(audio_path),
+            "-af",
+            "volumedetect",
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=12,
+    )
+
+    volumedetect_text = f"{result.stdout}\n{result.stderr}"
+    match = re.search(r"max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB", volumedetect_text)
+    if not match:
+        return None
+    return float(match.group(1))
+
+
+def prepare_audio_for_transcription(audio_path):
+    audio_path = Path(audio_path)
+    prepared_audio_path = audio_path
+    try:
+        max_volume_db = measure_audio_max_volume(audio_path)
+    except Exception as exc:
+        print(f"[AUDIO] preprocess_measure_failed error={exc}")
+        return prepared_audio_path
+
+    if max_volume_db is None:
+        return prepared_audio_path
+
+    print(f"[AUDIO] max_volume_db={max_volume_db:.1f}")
+    gain_db = min(AUDIO_TARGET_MAX_DB - max_volume_db, AUDIO_MAX_GAIN_DB)
+    if gain_db <= 0.5:
+        return prepared_audio_path
+
+    prepared_audio_path = audio_path.with_name(f"{audio_path.stem}_prep.wav")
+    started_at = time.perf_counter()
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(audio_path),
+            "-af",
+            f"highpass=f=120,lowpass=f=3800,volume={gain_db:.1f}dB",
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            str(prepared_audio_path),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=20,
+        check=True,
+    )
+    print(
+        "[AUDIO] preprocessed "
+        f"gain_db={gain_db:.1f} "
+        f"path={prepared_audio_path} "
+        f"seconds={time.perf_counter() - started_at:.3f}"
+    )
+    return prepared_audio_path
 
 if __name__ == "__main__":
     archivo_grabado = sys.argv[1] if len(sys.argv) > 1 else "/tmp/vecino.wav"

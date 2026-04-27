@@ -19,6 +19,18 @@ def send_response(connection, payload):
     connection.sendall(body.encode("utf-8"))
 
 
+def safe_send_response(connection, payload):
+    try:
+        send_response(connection, payload)
+        return True
+    except BrokenPipeError:
+        print("[SERVICE] client_disconnected_before_response", flush=True)
+        return False
+    except OSError as exc:
+        print(f"[SERVICE] response_failed error={exc}", flush=True)
+        return False
+
+
 def receive_request(connection):
     chunks = []
     while True:
@@ -105,7 +117,7 @@ def main():
 
                     if action == "health":
                         print("[SERVICE] action=health", flush=True)
-                        send_response(
+                        safe_send_response(
                             connection,
                             {
                                 "ok": True,
@@ -117,12 +129,12 @@ def main():
                         continue
 
                     if action == "transcribe":
-                        send_response(connection, handle_transcribe(model, payload))
+                        safe_send_response(connection, handle_transcribe(model, payload))
                         continue
 
-                    send_response(connection, {"ok": False, "error": "unknown_action"})
+                    safe_send_response(connection, {"ok": False, "error": "unknown_action"})
                 except Exception as exc:
-                    send_response(connection, {"ok": False, "error": str(exc)})
+                    safe_send_response(connection, {"ok": False, "error": str(exc)})
     finally:
         remove_socket_file()
 

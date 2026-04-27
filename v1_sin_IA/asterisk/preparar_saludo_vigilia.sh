@@ -6,7 +6,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FACE_ENV_PYTHON="$HOME/miniforge3/envs/vigilia-face/bin/python"
 PROMPT_SCRIPT="$PROJECT_DIR/v1_sin_IA/asterisk/preparar_saludo_vigilia.py"
 
-TEXT="${1:-Hola, te escucha Vigilia. Por favor, di tu solicitud después del tono.}"
+TEXT="${1:-Hola.}"
 OUTPUT_PATH="${2:-/tmp/vigilia_prompt.wav}"
 
 if [[ ! -x "$FACE_ENV_PYTHON" ]]; then

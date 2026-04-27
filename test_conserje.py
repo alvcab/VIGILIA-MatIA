@@ -7,36 +7,63 @@ from datetime import datetime
 from v1_sin_IA.event_store import insert_access_event
 
 # --- CONFIGURACIÓN ---
-VTO_IP = "192.168.100.108"
-VTO_USER = "admin"
-VTO_PASS = "Splitreset6901"
+VTO_IP = os.environ.get("VTO_IP", "192.168.100.108")
+VTO_USER = os.environ.get("VTO_USER", "admin")
+VTO_PASS = os.environ.get("VTO_PASS", "Splitreset6901")
+DEFAULT_GATE_CHANNEL = int(os.environ.get("VTO_GATE_CHANNEL", "1"))
+VTO_GATE_REMOTE_USER_ID = os.environ.get("VTO_GATE_REMOTE_USER_ID", "101")
+
+
+def build_gate_open_url(channel=DEFAULT_GATE_CHANNEL, remote_user_id=None, remote_type=None):
+    url = f"http://{VTO_IP}/cgi-bin/accessControl.cgi?action=openDoor&channel={channel}"
+    if remote_user_id is not None:
+        url = f"{url}&UserID={remote_user_id}"
+    if remote_type is not None:
+        url = f"{url}&Type={remote_type}"
+    return url
+
+
+def build_gate_open_urls(channel=DEFAULT_GATE_CHANNEL):
+    return (
+        build_gate_open_url(channel=channel),
+        build_gate_open_url(
+            channel=channel,
+            remote_user_id=VTO_GATE_REMOTE_USER_ID,
+            remote_type="Remote",
+        ),
+    )
 
 
 def open_gate(channel=1):
-    result = subprocess.run(
-        [
-            "curl",
-            "-sS",
-            "--digest",
-            "-u",
-            f"{VTO_USER}:{VTO_PASS}",
-            f"http://{VTO_IP}/cgi-bin/accessControl.cgi?action=openDoor&channel={channel}",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    for attempt_index, gate_url in enumerate(build_gate_open_urls(channel=channel), start=1):
+        result = subprocess.run(
+            [
+                "curl",
+                "-sS",
+                "--digest",
+                "-u",
+                f"{VTO_USER}:{VTO_PASS}",
+                gate_url,
+            ],
+            capture_output=True,
+            text=True,
+        )
 
-    response_text = result.stdout.strip()
-    gate_opened = result.returncode == 0 and response_text == "OK"
+        response_text = result.stdout.strip()
+        gate_opened = result.returncode == 0 and response_text == "OK"
 
-    print(f">>> [GATE] channel={channel} curl exit code: {result.returncode}")
-    if response_text:
-        print(f">>> [GATE] channel={channel} stdout: {response_text}")
-    if result.stderr.strip():
-        print(f">>> [GATE] channel={channel} stderr: {result.stderr.strip()}")
-    print(f">>> [GATE] channel={channel} opened: {gate_opened}")
+        print(f">>> [GATE] channel={channel} attempt={attempt_index} curl exit code: {result.returncode}")
+        print(f">>> [GATE] channel={channel} attempt={attempt_index} url: {gate_url}")
+        if response_text:
+            print(f">>> [GATE] channel={channel} attempt={attempt_index} stdout: {response_text}")
+        if result.stderr.strip():
+            print(f">>> [GATE] channel={channel} attempt={attempt_index} stderr: {result.stderr.strip()}")
+        print(f">>> [GATE] channel={channel} attempt={attempt_index} opened: {gate_opened}")
 
-    return gate_opened
+        if gate_opened:
+            return True
+
+    return False
 
 
 def log_manual_event(channel, gate_opened):
@@ -92,7 +119,7 @@ if __name__ == "__main__":
         diagnose_channels()
         sys.exit(0)
 
-    selected_channel = 1
+    selected_channel = DEFAULT_GATE_CHANNEL
     run_once = False
     args = [arg for arg in sys.argv[1:] if arg != "--once"]
     if "--once" in sys.argv[1:]:

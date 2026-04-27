@@ -66,6 +66,13 @@ Probar canales del Dahua:
 python3 test_conserje.py --diagnose
 ```
 
+Si el relay correcto no es el `1`, fija el canal real antes de probar el flujo:
+
+```bash
+export VTO_GATE_CHANNEL=2
+python3 test_conserje.py --once
+```
+
 Ver la camara del VTO:
 
 ```bash
@@ -82,6 +89,15 @@ Ejecutar el flujo principal con un audio real:
 
 ```bash
 ./run_vigilia.sh /ruta/al/audio.wav
+```
+
+Variables utiles para configuracion local no versionada:
+
+```bash
+export VTO_IP=192.168.100.108
+export VTO_USER=admin
+export VTO_PASS='tu-clave-local'
+export VTO_GATE_CHANNEL=2
 ```
 
 Ver el log del servicio persistente:
