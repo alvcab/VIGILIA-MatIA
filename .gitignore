@@ -16,6 +16,7 @@ venv/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+.runtime/
 
 # Generated captures and media artifacts
 captures/

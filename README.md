@@ -26,6 +26,10 @@ El repositorio ya incluye:
 ## Estructura Principal
 
 - [run_vigilia.sh](./run_vigilia.sh): lanzador principal del flujo de audio
+- [scripts/vigilia_env.sh](./scripts/vigilia_env.sh): variables compartidas del runtime repo-local
+- [scripts/prepare_repo_runtime.sh](./scripts/prepare_repo_runtime.sh): prepara `.runtime/` y renderiza config activa
+- [scripts/start_repo_asterisk.sh](./scripts/start_repo_asterisk.sh): inicia Asterisk usando config repo-local
+- [scripts/asterisk_repo_cli.sh](./scripts/asterisk_repo_cli.sh): envia comandos CLI al Asterisk repo-local
 - [v1_sin_IA/inference_service.py](./v1_sin_IA/inference_service.py): servicio local persistente para transcripcion Whisper
 - [v1_sin_IA/puente_vigilia.py](./v1_sin_IA/puente_vigilia.py): pipeline de acceso con voz, snapshot, matching facial y decision
 - [v1_sin_IA/vto_camera.py](./v1_sin_IA/vto_camera.py): vista en vivo y snapshots del VTO
@@ -50,7 +54,7 @@ Ese entorno contiene:
 - `openai-whisper`
 - `torch`
 
-El runner intenta mantener un servicio local persistente en `/tmp/vigilia_inference.sock` para evitar recargar Whisper en cada llamada. Si el servicio no responde a tiempo, el flujo vuelve automaticamente al modo local para esa transcripcion.
+El runner intenta mantener un servicio local persistente en `.runtime/run/vigilia_inference.sock` para evitar recargar Whisper en cada llamada. Si el servicio no responde a tiempo, el flujo vuelve automaticamente al modo local para esa transcripcion.
 
 ## Comandos Utiles
 
@@ -103,7 +107,7 @@ export VTO_GATE_CHANNEL=2
 Ver el log del servicio persistente:
 
 ```bash
-tail -f /tmp/vigilia_inference.log
+tail -f .runtime/logs/vigilia_inference.log
 ```
 
 Registrar una persona autorizada:
@@ -157,16 +161,29 @@ python3 v1_sin_IA/face_registry.py list-observations 5
 
 ## Operacion Asterisk
 
+Preparar el runtime local del repo:
+
+```bash
+./scripts/prepare_repo_runtime.sh
+```
+
+Iniciar Asterisk con config repo-local:
+
+```bash
+./scripts/start_repo_asterisk.sh
+```
+
+Enviar comandos CLI al Asterisk repo-local:
+
+```bash
+./scripts/asterisk_repo_cli.sh "dialplan reload"
+./scripts/asterisk_repo_cli.sh "pjsip show endpoints"
+```
+
 Generar el saludo inicial para el dialplan:
 
 ```bash
 ./v1_sin_IA/asterisk/preparar_saludo_vigilia.sh
-```
-
-Recargar el dialplan:
-
-```bash
-asterisk -rx "dialplan reload"
 ```
 
 El contexto `from-vto` ahora hace este flujo:
@@ -179,9 +196,11 @@ El contexto `from-vto` ahora hace este flujo:
 
 Archivos utiles para debug:
 
-- audio entrante: `/tmp/vigilia_in_<UNIQUEID>.wav`
-- audio de respuesta: `/tmp/vigilia_out_<UNIQUEID>.wav`
-- log operativo: `/tmp/vigilia_asterisk.log`
+- audio entrante: `.runtime/audio/vigilia_in_<UNIQUEID>.wav`
+- audio RTSP auxiliar: `.runtime/audio/<CALL_ID>_rtsp.wav`
+- audio de respuesta: `.runtime/audio/vigilia_out_<UNIQUEID>.wav`
+- prompt inicial: `.runtime/audio/vigilia_prompt.*`
+- log operativo: `.runtime/logs/vigilia_asterisk.log`
 
 ## Base de Datos
 
@@ -217,10 +236,17 @@ sqlite3 -header -column data/vigilia.db "select id, created_at, transcript, mode
 - La whitelist facial vive en `authorized_people.access_enabled`.
 - La base SQLite se resuelve con ruta absoluta dentro del repo para evitar inconsistencias entre scripts.
 - `captures/` y `data/vigilia.db` no se versionan.
+- `.runtime/` no se versiona y concentra sockets, logs y audio temporal.
 - En pruebas nocturnas del VTO, `Dia/Noche = Black/White` dio mejores resultados de matching facial que `Automatico`.
 - Contraluces fuertes, como una TV brillante o luz lateral detras del visitante, degradan mucho el matching aunque la cara siga siendo visible.
 - Si el sistema no logra una cara usable, ahora intenta snapshots adicionales y orienta al visitante a acercarse y mirar de frente a la camara.
 
-## Proximo Paso Sugerido
+## Camino a Jetson
 
-La siguiente iteracion natural es estabilizar el flujo completo en llamadas reales: ajustar umbrales faciales, afinar el prompt de decision y endurecer permisos/ejecucion de Asterisk sobre el entorno `vigilia-face`.
+La ruta recomendada para migrar a Jetson es:
+
+1. clonar este repo completo
+2. instalar Asterisk y dependencias del sistema en la maquina destino
+3. preparar el runtime local con `./scripts/prepare_repo_runtime.sh`
+4. iniciar Asterisk con `./scripts/start_repo_asterisk.sh`
+5. mantener secretos y parametros de red fuera de git via variables de entorno o `.env` local

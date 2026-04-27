@@ -29,6 +29,18 @@ except ModuleNotFoundError:
     )
     from vto_camera import capture_snapshot
 
+try:
+    from v1_sin_IA.runtime_paths import (
+        DEFAULT_RESPONSE_AUDIO_PATH as RUNTIME_DEFAULT_RESPONSE_AUDIO_PATH,
+        INFERENCE_SOCKET_PATH as RUNTIME_INFERENCE_SOCKET_PATH,
+        ensure_runtime_directories,
+    )
+except ModuleNotFoundError:
+    from runtime_paths import (
+        DEFAULT_RESPONSE_AUDIO_PATH as RUNTIME_DEFAULT_RESPONSE_AUDIO_PATH,
+        INFERENCE_SOCKET_PATH as RUNTIME_INFERENCE_SOCKET_PATH,
+        ensure_runtime_directories,
+    )
 
 VTO_IP = os.environ.get("VTO_IP", "192.168.100.108")
 VTO_USER = os.environ.get("VTO_USER", "admin")
@@ -38,8 +50,8 @@ VTO_GATE_TIMEOUT_SECONDS = float(os.environ.get("VTO_GATE_TIMEOUT_SECONDS", "6")
 VTO_GATE_REMOTE_USER_ID = os.environ.get("VTO_GATE_REMOTE_USER_ID", "101")
 FACE_ENV_PYTHON = Path.home() / "miniforge3" / "envs" / "vigilia-face" / "bin" / "python"
 FACE_RECOGNIZER_SCRIPT = Path(__file__).with_name("reconocer_rostro.py")
-INFERENCE_SOCKET_PATH = Path("/tmp/vigilia_inference.sock")
-DEFAULT_RESPONSE_AUDIO_PATH = Path("/tmp/ia_dice.wav")
+INFERENCE_SOCKET_PATH = RUNTIME_INFERENCE_SOCKET_PATH
+DEFAULT_RESPONSE_AUDIO_PATH = RUNTIME_DEFAULT_RESPONSE_AUDIO_PATH
 MODEL_TIMEOUT_SECONDS = float(os.environ.get("VIGILIA_MODEL_TIMEOUT_SECONDS", "10"))
 INFERENCE_SERVICE_TIMEOUT_SECONDS = float(
     os.environ.get("VIGILIA_INFERENCE_SERVICE_TIMEOUT_SECONDS", "8")
@@ -74,6 +86,17 @@ VOICE_OPEN_PHRASES = (
     "abreme la puerta",
     "dejame pasar",
     "deja pasar",
+)
+GREETING_ONLY_PHRASES = (
+    "hola",
+    "hola hola",
+    "hola buenas",
+    "hola buenos dias",
+    "hola buenas tardes",
+    "hola buenas noches",
+    "buenos dias",
+    "buenas tardes",
+    "buenas noches",
 )
 VOICE_OPEN_FUZZY_THRESHOLD = 0.72
 VOICE_OPEN_KEYWORD_FUZZY_THRESHOLD = 0.78
@@ -122,8 +145,72 @@ def get_whisper_module():
     except Exception as exc:
         raise RuntimeError("local_transcription_import_failed") from exc
 
+
+def render_asterisk_audio_variants(source_audio_path, output_base_path, timeout_seconds):
+    output_base_path = Path(output_base_path)
+    wav_path = output_base_path.with_suffix(".wav")
+    alaw_path = output_base_path.with_suffix(".alaw")
+    ulaw_path = output_base_path.with_suffix(".ulaw")
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(source_audio_path),
+            "-ar",
+            "8000",
+            "-ac",
+            "1",
+            str(wav_path),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=timeout_seconds,
+        check=True,
+    )
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(source_audio_path),
+            "-f",
+            "alaw",
+            "-ar",
+            "8000",
+            "-ac",
+            "1",
+            str(alaw_path),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=timeout_seconds,
+        check=True,
+    )
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(source_audio_path),
+            "-f",
+            "mulaw",
+            "-ar",
+            "8000",
+            "-ac",
+            "1",
+            str(ulaw_path),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=timeout_seconds,
+        check=True,
+    )
+
 # Función para que la IA "hable"
 def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
+    ensure_runtime_directories()
     started_at = time.perf_counter()
     print(f"IA dice: {texto}")
     response_audio_path = Path(response_audio_path)
@@ -160,12 +247,14 @@ def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
             tts.save(str(temp_mp3_path))
             source_audio_path = temp_mp3_path
 
-        subprocess.run([
-            'ffmpeg', '-y', '-i', str(source_audio_path),
-            '-ar', '8000', '-ac', '1', str(response_audio_path)
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=TTS_TIMEOUT_SECONDS, check=True)
+        render_asterisk_audio_variants(
+            source_audio_path=source_audio_path,
+            output_base_path=response_audio_path.with_suffix(""),
+            timeout_seconds=TTS_TIMEOUT_SECONDS,
+        )
     except Exception as exc:
         print(f"[TTS] fallback error={exc}")
+        silent_source_path = response_audio_path.with_suffix(".silence.wav")
         subprocess.run(
             [
                 "ffmpeg",
@@ -176,12 +265,21 @@ def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
                 "anullsrc=r=8000:cl=mono",
                 "-t",
                 "0.5",
-                str(response_audio_path),
+                str(silent_source_path),
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=False,
         )
+        if silent_source_path.exists():
+            try:
+                render_asterisk_audio_variants(
+                    source_audio_path=silent_source_path,
+                    output_base_path=response_audio_path.with_suffix(""),
+                    timeout_seconds=TTS_TIMEOUT_SECONDS,
+                )
+            finally:
+                silent_source_path.unlink(missing_ok=True)
     finally:
         temp_aiff_path.unlink(missing_ok=True)
         temp_mp3_path.unlink(missing_ok=True)
@@ -582,6 +680,20 @@ def detect_open_request(visitor_text):
     )
 
 
+def is_greeting_only_text(visitor_text):
+    normalized_text = normalize_spanish_text(visitor_text)
+    if not normalized_text:
+        return False
+
+    if normalized_text in GREETING_ONLY_PHRASES:
+        return True
+
+    return any(
+        fuzzy_contains_phrase(normalized_text, phrase, threshold=0.84)
+        for phrase in GREETING_ONLY_PHRASES
+    )
+
+
 def normalize_unit_text(unit_text):
     return normalize_spanish_text(unit_text or "")
 
@@ -771,6 +883,21 @@ def has_meaningful_speech(visitor_text):
     return len(normalized_text) >= 12
 
 
+def should_auto_open_known_resident_on_button_press(visitor_text, face_result):
+    if not has_trusted_face_match(face_result):
+        return False
+    if not face_match_is_access_enabled(face_result):
+        return False
+    if not face_match_is_known_resident(face_result):
+        return False
+
+    normalized_text = normalize_spanish_text(visitor_text)
+    if not normalized_text:
+        return True
+
+    return is_greeting_only_text(normalized_text)
+
+
 def resolve_model_unavailable_fallback(visitor_text, face_result, resident_context=None):
     resident_context = resident_context or {}
     access_enabled_face_match = face_match_is_access_enabled(face_result)
@@ -814,6 +941,13 @@ def resolve_access_decision(visitor_text, face_result, model_response, resident_
         resident_context=resident_context,
     )
     has_resident_context = has_claimed_resident_context(resident_context)
+
+    if should_auto_open_known_resident_on_button_press(visitor_text, face_result):
+        return {
+            "should_open": True,
+            "source": "resident_context",
+            "reason": "known_resident_button_press_face_match",
+        }
 
     if (
         voice_requests_open
@@ -938,6 +1072,7 @@ def resolve_access_decision(visitor_text, face_result, model_response, resident_
     }
 
 def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
+    ensure_runtime_directories()
     # Cargar Whisper (oído)
     if not Path(ruta_audio).exists():
         raise FileNotFoundError(f"Audio file not found: {ruta_audio}")
@@ -957,25 +1092,46 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     print(f"[TIMING] pre_decision_seconds={time.perf_counter() - started_at:.3f}")
     texto_vecino = result["text"].lower().strip()
     resident_context = resolve_claimed_resident_context(texto_vecino)
+    pre_model_decision = resolve_access_decision(
+        visitor_text=texto_vecino,
+        face_result=face_result,
+        model_response=None,
+        resident_context=resident_context,
+    )
     
     if not texto_vecino:
-        decir(
-            "No pude escucharte bien. Por favor, pulsa el botón de nuevo.",
-            response_audio_path=response_audio_path,
-        )
+        gate_opened = False
+        if pre_model_decision["should_open"]:
+            print(
+                "[DECISION] "
+                f"source={pre_model_decision['source']} "
+                f"reason={pre_model_decision['reason']} "
+                f"should_open={pre_model_decision['should_open']} "
+                "stage=empty_transcript"
+            )
+            gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
+        else:
+            decir(
+                "No pude escucharte bien. Por favor, pulsa el botón de nuevo.",
+                response_audio_path=response_audio_path,
+            )
         insert_access_event(
             created_at=created_at,
             audio_path=ruta_audio,
             transcript=texto_vecino,
             model_response=None,
-            gate_opened=False,
+            gate_opened=gate_opened,
             snapshot_path=snapshot_path,
             error_message=combine_errors(snapshot_error, face_error, transcription_error),
             face_match_name=face_result.get("matched_person_name") if face_result else None,
             face_match_confidence=face_confidence(face_result),
             face_observation_id=face_result.get("observation_id") if face_result else None,
-            decision_source="speech_capture",
-            decision_reason="empty_transcript",
+            decision_source=(
+                pre_model_decision["source"] if pre_model_decision["should_open"] else "speech_capture"
+            ),
+            decision_reason=(
+                pre_model_decision["reason"] if pre_model_decision["should_open"] else "empty_transcript"
+            ),
             claimed_resident_name=resident_context["claimed_resident_name"],
             claimed_unit=resident_context["claimed_unit"],
             resolved_resident_id=resident_context["resolved_resident_id"],
@@ -1008,7 +1164,7 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
         resident_context=resident_context,
     )
 
-    if pre_model_decision["source"] == "hybrid_policy":
+    if pre_model_decision["should_open"] or pre_model_decision["source"] == "hybrid_policy":
         print(
             "[DECISION] "
             f"source={pre_model_decision['source']} "

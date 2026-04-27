@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "$PROJECT_DIR/scripts/vigilia_env.sh"
 RUN_VIGILIA_SCRIPT="$PROJECT_DIR/run_vigilia.sh"
 VTO_AUDIO_IP="${VTO_AUDIO_IP:-192.168.100.108}"
 VTO_AUDIO_USER="${VTO_AUDIO_USER:-admin}"
@@ -14,9 +15,9 @@ VTO_AUDIO_SECONDS="${VTO_AUDIO_SECONDS:-5}"
 
 AUDIO_PATH="${1:-}"
 RESPONSE_AUDIO_PATH="${2:-}"
-LOG_PATH="${3:-/tmp/vigilia_asterisk.log}"
+LOG_PATH="${3:-$VIGILIA_ASTERISK_LOG_PATH}"
 CALL_ID="$(basename "${AUDIO_PATH%.*}" 2>/dev/null || echo unknown)"
-RTSP_AUDIO_PATH="/tmp/${CALL_ID}_rtsp.wav"
+RTSP_AUDIO_PATH="$VIGILIA_AUDIO_DIR/${CALL_ID}_rtsp.wav"
 
 build_rtsp_url() {
   printf 'rtsp://%s:%s@%s:%s/cam/realmonitor?channel=%s&subtype=%s' \

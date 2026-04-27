@@ -1,17 +1,20 @@
 import json
 import socket
 import sys
-from pathlib import Path
 
-
-SOCKET_PATH = Path("/tmp/vigilia_inference.sock")
+try:
+    from v1_sin_IA.runtime_paths import INFERENCE_SOCKET_PATH, ensure_runtime_directories
+except ModuleNotFoundError:
+    from runtime_paths import INFERENCE_SOCKET_PATH, ensure_runtime_directories
 
 
 def main():
     action = sys.argv[1] if len(sys.argv) > 1 else "health"
     timeout_seconds = float(sys.argv[2]) if len(sys.argv) > 2 else 2.0
 
-    if not SOCKET_PATH.exists():
+    ensure_runtime_directories()
+
+    if not INFERENCE_SOCKET_PATH.exists():
         print(json.dumps({"ok": False, "error": "socket_missing"}))
         sys.exit(1)
 
@@ -20,7 +23,7 @@ def main():
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(timeout_seconds)
-            client.connect(str(SOCKET_PATH))
+            client.connect(str(INFERENCE_SOCKET_PATH))
             client.sendall((json.dumps(request_body) + "\n").encode("utf-8"))
 
             chunks = []

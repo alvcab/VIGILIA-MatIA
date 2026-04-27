@@ -16,6 +16,7 @@ from v1_sin_IA.puente_vigilia import (
     get_whisper_module,
     has_known_resident_extended_face_match,
     has_meaningful_speech,
+    is_greeting_only_text,
     normalize_model_token,
     prepare_audio_for_transcription,
     transcribe_audio,
@@ -68,12 +69,20 @@ class ModelResponseValidationTests(unittest.TestCase):
     def test_decir_falls_back_to_silence_when_tts_fails(self, mock_run):
         target_path = Path("/tmp/test_decir_fallback.wav")
         target_path.unlink(missing_ok=True)
+        target_path.with_suffix(".alaw").unlink(missing_ok=True)
+        target_path.with_suffix(".ulaw").unlink(missing_ok=True)
 
         def side_effect(cmd, **kwargs):
             if cmd[0] == "say":
                 raise RuntimeError("say_failed")
             if cmd[0] == "ffmpeg" and "anullsrc=r=8000:cl=mono" in cmd:
+                target_path.with_suffix(".silence.wav").write_bytes(b"RIFF")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path):
                 target_path.write_bytes(b"RIFF")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path.with_suffix(".alaw")):
+                target_path.with_suffix(".alaw").write_bytes(b"ALAW")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path.with_suffix(".ulaw")):
+                target_path.with_suffix(".ulaw").write_bytes(b"ULAW")
             class Result:
                 returncode = 0
             return Result()
@@ -83,7 +92,11 @@ class ModelResponseValidationTests(unittest.TestCase):
         decir("hola", response_audio_path=target_path)
 
         self.assertTrue(target_path.exists())
+        self.assertTrue(target_path.with_suffix(".alaw").exists())
+        self.assertTrue(target_path.with_suffix(".ulaw").exists())
         target_path.unlink(missing_ok=True)
+        target_path.with_suffix(".alaw").unlink(missing_ok=True)
+        target_path.with_suffix(".ulaw").unlink(missing_ok=True)
 
     @patch("v1_sin_IA.puente_vigilia.subprocess.run")
     @patch("v1_sin_IA.puente_vigilia.measure_audio_max_volume")
@@ -266,6 +279,9 @@ class ModelResponseValidationTests(unittest.TestCase):
     def test_detects_open_request_from_noisy_keyword_variant(self):
         self.assertTrue(detect_open_request("avre el porton"))
 
+    def test_detects_greeting_only_text(self):
+        self.assertTrue(is_greeting_only_text("hola, buenas tardes"))
+
     def test_returns_borderline_reason_for_voice_request(self):
         decision = resolve_access_decision(
             visitor_text="abril por tom por favor",
@@ -321,6 +337,59 @@ class ModelResponseValidationTests(unittest.TestCase):
             decision["reason"],
             "voice_requested_open_and_known_resident_face_match",
         )
+
+    def test_opens_trusted_face_for_known_resident_without_speech(self):
+        decision = resolve_access_decision(
+            visitor_text="",
+            face_result={
+                "matched": True,
+                "distance": 0.37,
+                "tolerance": 0.45,
+                "person": {"access_enabled": 1, "resident_id": 10},
+            },
+            model_response=None,
+            resident_context={},
+        )
+
+        self.assertTrue(decision["should_open"])
+        self.assertEqual(
+            decision["reason"],
+            "known_resident_button_press_face_match",
+        )
+
+    def test_opens_trusted_face_for_known_resident_with_greeting_only(self):
+        decision = resolve_access_decision(
+            visitor_text="hola buenas tardes",
+            face_result={
+                "matched": True,
+                "distance": 0.37,
+                "tolerance": 0.45,
+                "person": {"access_enabled": 1, "resident_id": 10},
+            },
+            model_response=None,
+            resident_context={},
+        )
+
+        self.assertTrue(decision["should_open"])
+        self.assertEqual(
+            decision["reason"],
+            "known_resident_button_press_face_match",
+        )
+
+    def test_does_not_open_greeting_only_without_known_resident_face(self):
+        decision = resolve_access_decision(
+            visitor_text="hola",
+            face_result={
+                "matched": True,
+                "distance": 0.37,
+                "tolerance": 0.45,
+                "person": {"access_enabled": 1, "resident_id": None},
+            },
+            model_response=None,
+            resident_context={},
+        )
+
+        self.assertFalse(decision["should_open"])
 
     def test_denies_trusted_face_when_claimed_resident_does_not_match_face(self):
         decision = resolve_access_decision(

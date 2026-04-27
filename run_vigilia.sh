@@ -2,10 +2,11 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$PROJECT_DIR/scripts/vigilia_env.sh"
 FACE_ENV_PYTHON="$HOME/miniforge3/envs/vigilia-face/bin/python"
-DEFAULT_AUDIO_PATH="/tmp/vecino.wav"
-INFERENCE_SOCKET_PATH="/tmp/vigilia_inference.sock"
-INFERENCE_LOG_PATH="/tmp/vigilia_inference.log"
+DEFAULT_AUDIO_PATH="$VIGILIA_DEFAULT_AUDIO_PATH"
+INFERENCE_SOCKET_PATH="$VIGILIA_INFERENCE_SOCKET"
+INFERENCE_LOG_PATH="$VIGILIA_INFERENCE_LOG"
 
 if [[ ! -x "$FACE_ENV_PYTHON" ]]; then
   echo "No se encontro el entorno vigilia-face en: $FACE_ENV_PYTHON"
@@ -13,14 +14,14 @@ if [[ ! -x "$FACE_ENV_PYTHON" ]]; then
 fi
 
 AUDIO_PATH="${1:-$DEFAULT_AUDIO_PATH}"
-RESPONSE_AUDIO_PATH="${2:-/tmp/ia_dice.wav}"
+RESPONSE_AUDIO_PATH="${2:-$VIGILIA_DEFAULT_RESPONSE_AUDIO_PATH}"
 
 if [[ ! -f "$AUDIO_PATH" ]]; then
   echo "No se encontro el archivo de audio: $AUDIO_PATH"
   echo "Uso:"
   echo "  ./run_vigilia.sh /ruta/al/audio.wav [/ruta/a/respuesta.wav]"
   echo
-  echo "Si quieres usar el valor por defecto, primero crea /tmp/vecino.wav."
+  echo "Si quieres usar el valor por defecto, primero crea $DEFAULT_AUDIO_PATH."
   exit 1
 fi
 

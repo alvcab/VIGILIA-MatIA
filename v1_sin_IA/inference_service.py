@@ -4,12 +4,14 @@ import signal
 import socket
 import sys
 import time
-from pathlib import Path
 
 import whisper
 
+try:
+    from v1_sin_IA.runtime_paths import INFERENCE_SOCKET_PATH, ensure_runtime_directories
+except ModuleNotFoundError:
+    from runtime_paths import INFERENCE_SOCKET_PATH, ensure_runtime_directories
 
-SOCKET_PATH = Path("/tmp/vigilia_inference.sock")
 WHISPER_MODEL_NAME = "tiny"
 SERVER_TIMEOUT_SECONDS = 30
 
@@ -64,7 +66,7 @@ def handle_transcribe(model, payload):
 
 def remove_socket_file():
     try:
-        SOCKET_PATH.unlink()
+        INFERENCE_SOCKET_PATH.unlink()
     except FileNotFoundError:
         return
 
@@ -80,6 +82,7 @@ def install_signal_handlers(server_socket):
 
 
 def main():
+    ensure_runtime_directories()
     remove_socket_file()
 
     preload_started_at = time.perf_counter()
@@ -91,13 +94,13 @@ def main():
     )
 
     server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    server_socket.bind(str(SOCKET_PATH))
-    os.chmod(SOCKET_PATH, 0o600)
+    server_socket.bind(str(INFERENCE_SOCKET_PATH))
+    os.chmod(INFERENCE_SOCKET_PATH, 0o600)
     server_socket.listen()
     server_socket.settimeout(SERVER_TIMEOUT_SECONDS)
     install_signal_handlers(server_socket)
 
-    print(f"[SERVICE] listening socket={SOCKET_PATH}", flush=True)
+    print(f"[SERVICE] listening socket={INFERENCE_SOCKET_PATH}", flush=True)
 
     try:
         while True:
@@ -123,7 +126,7 @@ def main():
                                 "ok": True,
                                 "service": "vigilia_inference",
                                 "pid": os.getpid(),
-                                "socket_path": str(SOCKET_PATH),
+                                "socket_path": str(INFERENCE_SOCKET_PATH),
                             },
                         )
                         continue
