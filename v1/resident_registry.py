@@ -1,7 +1,7 @@
 import sys
 
 try:
-    from v1_sin_IA.event_store import (
+    from v1.event_store import (
         get_resident_aliases,
         get_residents,
         insert_resident,
@@ -18,10 +18,10 @@ except ModuleNotFoundError:
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/resident_registry.py add-resident <full_name> [preferred_name] [unit] [building] [phone]")
-    print("  python3 v1_sin_IA/resident_registry.py list-residents")
-    print("  python3 v1_sin_IA/resident_registry.py add-alias <resident_id> <alias_text> [alias_type]")
-    print("  python3 v1_sin_IA/resident_registry.py list-aliases")
+    print("  python3 v1/resident_registry.py add-resident <full_name> [preferred_name] [unit] [building] [phone]")
+    print("  python3 v1/resident_registry.py list-residents")
+    print("  python3 v1/resident_registry.py add-alias <resident_id> <alias_text> [alias_type]")
+    print("  python3 v1/resident_registry.py list-aliases")
 
 
 def add_resident(args):

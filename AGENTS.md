@@ -30,9 +30,9 @@ El objetivo principal es evolucionar el flujo de acceso de forma segura y trazab
 
 ## Puntos de Referencia del Repo
 
-- `v1_sin_IA/vigilia.py`: flujo de comandos por texto
-- `v1_sin_IA/puente_vigilia.py`: flujo de audio a decision
-- `v1_sin_IA/asterisk/`: configuracion SIP y dialplan
+- `v1/vigilia.py`: flujo de comandos por texto
+- `v1/puente_vigilia.py`: flujo de audio a decision
+- `v1/asterisk/`: configuracion SIP y dialplan
 - `test_conserje.py`: prototipo de disparo manual local
 
 ## Flujo OpenSpec

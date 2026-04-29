@@ -1,7 +1,7 @@
 import sys
 
 try:
-    from v1_sin_IA.event_store import (
+    from v1.event_store import (
         delete_authorized_person,
         get_authorized_people,
         get_recent_face_observations,
@@ -26,14 +26,14 @@ except ModuleNotFoundError:
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/face_registry.py add-person <nombre> [reference_image_path] [allow|deny] [resident_id]")
-    print("  python3 v1_sin_IA/face_registry.py list-people")
-    print("  python3 v1_sin_IA/face_registry.py set-access <person_id> <allow|deny>")
-    print("  python3 v1_sin_IA/face_registry.py set-resident <person_id> <resident_id>")
-    print("  python3 v1_sin_IA/face_registry.py update-reference-image <person_id> <reference_image_path>")
-    print("  python3 v1_sin_IA/face_registry.py remove-person <person_id>")
-    print("  python3 v1_sin_IA/face_registry.py add-observation [image_path] [notes]")
-    print("  python3 v1_sin_IA/face_registry.py list-observations [limite]")
+    print("  python3 v1/face_registry.py add-person <nombre> [reference_image_path] [allow|deny] [resident_id]")
+    print("  python3 v1/face_registry.py list-people")
+    print("  python3 v1/face_registry.py set-access <person_id> <allow|deny>")
+    print("  python3 v1/face_registry.py set-resident <person_id> <resident_id>")
+    print("  python3 v1/face_registry.py update-reference-image <person_id> <reference_image_path>")
+    print("  python3 v1/face_registry.py remove-person <person_id>")
+    print("  python3 v1/face_registry.py add-observation [image_path] [notes]")
+    print("  python3 v1/face_registry.py list-observations [limite]")
 
 
 def add_person(args):

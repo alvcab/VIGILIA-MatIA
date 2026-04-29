@@ -51,13 +51,13 @@ El sistema DEBE interpretar una solicitud hablada o escrita del visitante para d
 - ENTONCES el sistema rechaza la apertura de forma controlada
 - Y registra el evento como fallback del modelo
 
-#### Escenario: Modelo no disponible pero residente conocido con habla util
+#### Escenario: Modelo no disponible tras una frase no concluyente
 
-- DADO que la consulta al modelo local falla o excede su timeout
-- Y existe un rostro confiable o extendido de un residente conocido habilitado
-- Y el audio contiene habla util aunque la transcripcion no sea perfectamente interpretable
+- DADO que la politica hibrida no alcanza para decidir por si sola
+- Y la consulta al modelo local falla o excede su timeout
 - CUANDO el flujo aplica el fallback del modelo
-- ENTONCES el sistema puede permitir abrir como residente conocido
+- ENTONCES el sistema rechaza la apertura de forma controlada
+- Y no abre solo por rostro conocido ni por habla no concluyente
 
 ### Requisito: Restringir la apertura del porton a decisiones positivas
 
@@ -211,6 +211,14 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - DADO que la solicitud es denegada o no puede ser procesada
 - CUANDO el flujo de decision termina
 - ENTONCES el visitante recibe un mensaje indicando rechazo o falla temporal
+
+#### Escenario: Reproduccion local de la respuesta en el host
+
+- DADO que el flujo se ejecuta en un host local con reproduccion local habilitada
+- Y el sistema logra sintetizar el audio de respuesta
+- CUANDO termina de construir el WAV de salida
+- ENTONCES el sistema reproduce esa respuesta por los parlantes del host
+- Y mantiene el archivo listo para reutilizacion por Asterisk
 
 #### Escenario: Falla la sintesis de voz
 

@@ -15,7 +15,7 @@ Prototipo de control de acceso para condominio con:
 El repositorio ya incluye:
 
 - flujo manual de apertura con `test_conserje.py`
-- flujo principal de audio en `v1_sin_IA/puente_vigilia.py`
+- flujo principal de audio en `v1/puente_vigilia.py`
 - integracion base de Asterisk con grabacion, procesamiento IA y reproduccion de respuesta
 - captura de snapshots del VTO
 - registro de eventos en `data/vigilia.db`
@@ -30,14 +30,14 @@ El repositorio ya incluye:
 - [scripts/prepare_repo_runtime.sh](./scripts/prepare_repo_runtime.sh): prepara `.runtime/` y renderiza config activa
 - [scripts/start_repo_asterisk.sh](./scripts/start_repo_asterisk.sh): inicia Asterisk usando config repo-local
 - [scripts/asterisk_repo_cli.sh](./scripts/asterisk_repo_cli.sh): envia comandos CLI al Asterisk repo-local
-- [v1_sin_IA/inference_service.py](./v1_sin_IA/inference_service.py): servicio local persistente para transcripcion Whisper
-- [v1_sin_IA/puente_vigilia.py](./v1_sin_IA/puente_vigilia.py): pipeline de acceso con voz, snapshot, matching facial y decision
-- [v1_sin_IA/vto_camera.py](./v1_sin_IA/vto_camera.py): vista en vivo y snapshots del VTO
-- [v1_sin_IA/event_store.py](./v1_sin_IA/event_store.py): acceso a SQLite
-- [v1_sin_IA/face_registry.py](./v1_sin_IA/face_registry.py): gestion de personas y observaciones faciales
-- [v1_sin_IA/asterisk/extensions.conf](./v1_sin_IA/asterisk/extensions.conf): dialplan de entrada desde el VTO
-- [v1_sin_IA/asterisk/procesar_llamada_vto.sh](./v1_sin_IA/asterisk/procesar_llamada_vto.sh): wrapper entre Asterisk y `run_vigilia.sh`
-- [v1_sin_IA/asterisk/preparar_saludo_vigilia.sh](./v1_sin_IA/asterisk/preparar_saludo_vigilia.sh): generacion del saludo inicial reutilizable
+- [v1/inference_service.py](./v1/inference_service.py): servicio local persistente para transcripcion Whisper
+- [v1/puente_vigilia.py](./v1/puente_vigilia.py): pipeline de acceso con voz, snapshot, matching facial y decision
+- [v1/vto_camera.py](./v1/vto_camera.py): vista en vivo y snapshots del VTO
+- [v1/event_store.py](./v1/event_store.py): acceso a SQLite
+- [v1/face_registry.py](./v1/face_registry.py): gestion de personas y observaciones faciales
+- [v1/asterisk/extensions.conf](./v1/asterisk/extensions.conf): dialplan de entrada desde el VTO
+- [v1/asterisk/procesar_llamada_vto.sh](./v1/asterisk/procesar_llamada_vto.sh): wrapper entre Asterisk y `run_vigilia.sh`
+- [v1/asterisk/preparar_saludo_vigilia.sh](./v1/asterisk/preparar_saludo_vigilia.sh): generacion del saludo inicial reutilizable
 - [openspec/](./openspec): trazabilidad funcional y tecnica
 
 ## Entorno
@@ -80,13 +80,13 @@ python3 test_conserje.py --once
 Ver la camara del VTO:
 
 ```bash
-python3 v1_sin_IA/vto_camera.py live
+python3 v1/vto_camera.py live
 ```
 
 Capturar un snapshot:
 
 ```bash
-python3 v1_sin_IA/vto_camera.py snapshot
+python3 v1/vto_camera.py snapshot
 ```
 
 Ejecutar el flujo principal con un audio real:
@@ -113,50 +113,50 @@ tail -f .runtime/logs/vigilia_inference.log
 Registrar una persona autorizada:
 
 ```bash
-python3 v1_sin_IA/face_registry.py add-person "Alvaro" captures/puerta.jpg allow
+python3 v1/face_registry.py add-person "Alvaro" captures/puerta.jpg allow
 ```
 
 Deshabilitar o habilitar una persona ya registrada:
 
 ```bash
-python3 v1_sin_IA/face_registry.py set-access 2 deny
-python3 v1_sin_IA/face_registry.py set-access 2 allow
+python3 v1/face_registry.py set-access 2 deny
+python3 v1/face_registry.py set-access 2 allow
 ```
 
 Actualizar la imagen de referencia:
 
 ```bash
-python3 v1_sin_IA/face_registry.py update-reference-image 2 captures/nueva_foto.jpg
+python3 v1/face_registry.py update-reference-image 2 captures/nueva_foto.jpg
 ```
 
 Eliminar una persona del registro:
 
 ```bash
-python3 v1_sin_IA/face_registry.py remove-person 3
+python3 v1/face_registry.py remove-person 3
 ```
 
 Probar reconocimiento facial:
 
 ```bash
-~/miniforge3/envs/vigilia-face/bin/python v1_sin_IA/reconocer_rostro.py captures/puerta.jpg
+~/miniforge3/envs/vigilia-face/bin/python v1/reconocer_rostro.py captures/puerta.jpg
 ```
 
 Registrar y probar reconocimiento en un solo paso:
 
 ```bash
-~/miniforge3/envs/vigilia-face/bin/python v1_sin_IA/probar_reconocimiento.py "Alvaro" captures/puerta.jpg captures/puerta.jpg
+~/miniforge3/envs/vigilia-face/bin/python v1/probar_reconocimiento.py "Alvaro" captures/puerta.jpg captures/puerta.jpg
 ```
 
 Ver eventos recientes:
 
 ```bash
-python3 v1_sin_IA/ver_eventos.py 5
+python3 v1/ver_eventos.py 5
 ```
 
 Ver observaciones faciales:
 
 ```bash
-python3 v1_sin_IA/face_registry.py list-observations 5
+python3 v1/face_registry.py list-observations 5
 ```
 
 ## Operacion Asterisk
@@ -183,7 +183,7 @@ Enviar comandos CLI al Asterisk repo-local:
 Generar el saludo inicial para el dialplan:
 
 ```bash
-./v1_sin_IA/asterisk/preparar_saludo_vigilia.sh
+./v1/asterisk/preparar_saludo_vigilia.sh
 ```
 
 El contexto `from-vto` ahora hace este flujo:

@@ -26,7 +26,7 @@ if [[ ! -f "$AUDIO_PATH" ]]; then
 fi
 
 start_inference_service() {
-  nohup "$FACE_ENV_PYTHON" "$PROJECT_DIR/v1_sin_IA/inference_service.py" >> "$INFERENCE_LOG_PATH" 2>&1 &
+  nohup "$FACE_ENV_PYTHON" "$PROJECT_DIR/v1/inference_service.py" >> "$INFERENCE_LOG_PATH" 2>&1 &
 }
 
 if [[ ! -S "$INFERENCE_SOCKET_PATH" ]]; then
@@ -34,4 +34,4 @@ if [[ ! -S "$INFERENCE_SOCKET_PATH" ]]; then
 fi
 
 cd "$PROJECT_DIR"
-exec "$FACE_ENV_PYTHON" v1_sin_IA/puente_vigilia.py "$AUDIO_PATH" "$RESPONSE_AUDIO_PATH"
+exec "$FACE_ENV_PYTHON" v1/puente_vigilia.py "$AUDIO_PATH" "$RESPONSE_AUDIO_PATH"

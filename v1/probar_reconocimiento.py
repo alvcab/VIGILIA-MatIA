@@ -1,8 +1,8 @@
 import sys
 
 try:
-    from v1_sin_IA.face_engine import record_face_observation_from_image
-    from v1_sin_IA.face_registry import add_person
+    from v1.face_engine import record_face_observation_from_image
+    from v1.face_registry import add_person
 except ModuleNotFoundError:
     from face_engine import record_face_observation_from_image
     from face_registry import add_person
@@ -11,7 +11,7 @@ except ModuleNotFoundError:
 def print_usage():
     print("Uso:")
     print(
-        "  python v1_sin_IA/probar_reconocimiento.py "
+        "  python v1/probar_reconocimiento.py "
         "<nombre> <imagen_referencia> <imagen_a_reconocer> [tolerance]"
     )
 

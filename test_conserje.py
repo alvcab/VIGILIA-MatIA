@@ -4,7 +4,7 @@ import sys
 import time
 from datetime import datetime
 
-from v1_sin_IA.event_store import insert_access_event
+from v1.event_store import insert_access_event
 
 # --- CONFIGURACIÓN ---
 VTO_IP = os.environ.get("VTO_IP", "192.168.100.108")

@@ -13,13 +13,13 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 try:
-    from v1_sin_IA.event_store import (
+    from v1.event_store import (
         get_enabled_access_phrases,
         get_resident_aliases,
         get_residents,
         insert_access_event,
     )
-    from v1_sin_IA.vto_camera import capture_snapshot
+    from v1.vto_camera import capture_snapshot
 except ModuleNotFoundError:
     from event_store import (
         get_enabled_access_phrases,
@@ -30,7 +30,7 @@ except ModuleNotFoundError:
     from vto_camera import capture_snapshot
 
 try:
-    from v1_sin_IA.runtime_paths import (
+    from v1.runtime_paths import (
         DEFAULT_RESPONSE_AUDIO_PATH as RUNTIME_DEFAULT_RESPONSE_AUDIO_PATH,
         INFERENCE_SOCKET_PATH as RUNTIME_INFERENCE_SOCKET_PATH,
         ensure_runtime_directories,
@@ -60,6 +60,13 @@ AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS = int(os.environ.get("VIGILIA_AUDIO_TRANSCRI
 AUDIO_TARGET_MAX_DB = float(os.environ.get("VIGILIA_AUDIO_TARGET_MAX_DB", "-3"))
 AUDIO_MAX_GAIN_DB = float(os.environ.get("VIGILIA_AUDIO_MAX_GAIN_DB", "24"))
 TTS_TIMEOUT_SECONDS = float(os.environ.get("VIGILIA_TTS_TIMEOUT_SECONDS", "6"))
+LOCAL_RESPONSE_PLAYBACK_ENABLED = os.environ.get(
+    "VIGILIA_PLAY_RESPONSE_LOCALLY",
+    "1",
+).strip().lower() in {"1", "true", "yes", "on"}
+LOCAL_RESPONSE_PLAYBACK_TIMEOUT_SECONDS = float(
+    os.environ.get("VIGILIA_LOCAL_RESPONSE_PLAYBACK_TIMEOUT_SECONDS", "10")
+)
 VALID_MODEL_TOKENS = {"OPEN", "ERROR", "HOLA"}
 VOICE_OPEN_KEYWORDS = (
     "abre",
@@ -208,6 +215,27 @@ def render_asterisk_audio_variants(source_audio_path, output_base_path, timeout_
         check=True,
     )
 
+
+def play_local_response_audio(response_audio_path):
+    if not LOCAL_RESPONSE_PLAYBACK_ENABLED:
+        return
+
+    response_audio_path = Path(response_audio_path)
+    if not response_audio_path.exists():
+        return
+
+    try:
+        subprocess.run(
+            ["afplay", str(response_audio_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=LOCAL_RESPONSE_PLAYBACK_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except Exception as exc:
+        print(f"[TTS] local_playback error={exc}")
+
+
 # Función para que la IA "hable"
 def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     ensure_runtime_directories()
@@ -284,6 +312,7 @@ def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
         temp_aiff_path.unlink(missing_ok=True)
         temp_mp3_path.unlink(missing_ok=True)
 
+    play_local_response_audio(response_audio_path)
     print(f"[TIMING] tts_seconds={time.perf_counter() - started_at:.3f}")
 
 def ejecutar_porton(response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
@@ -899,28 +928,6 @@ def should_auto_open_known_resident_on_button_press(visitor_text, face_result):
 
 
 def resolve_model_unavailable_fallback(visitor_text, face_result, resident_context=None):
-    resident_context = resident_context or {}
-    access_enabled_face_match = face_match_is_access_enabled(face_result)
-    known_resident_face_match = face_match_is_known_resident(face_result)
-    has_resident_context = has_claimed_resident_context(resident_context)
-    strong_known_resident_match = (
-        has_trusted_face_match(face_result)
-        or has_known_resident_extended_face_match(face_result)
-    )
-
-    if (
-        has_meaningful_speech(visitor_text)
-        and strong_known_resident_match
-        and access_enabled_face_match
-        and known_resident_face_match
-        and not has_resident_context
-    ):
-        return {
-            "should_open": True,
-            "source": "resident_context",
-            "reason": "model_unavailable_but_known_resident_face_and_speech_present",
-        }
-
     return {
         "should_open": False,
         "source": "model_response",

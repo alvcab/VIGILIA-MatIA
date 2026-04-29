@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from v1_sin_IA.event_store import normalize_phrase_text
-from v1_sin_IA.puente_vigilia import (
+from v1.event_store import normalize_phrase_text
+from v1.puente_vigilia import (
     build_gate_open_url,
     build_gate_open_urls,
     build_denial_message,
@@ -41,7 +41,7 @@ class ModelResponseValidationTests(unittest.TestCase):
         self.assertIn("UserID=101", urls[1])
         self.assertIn("Type=Remote", urls[1])
 
-    @patch("v1_sin_IA.puente_vigilia.capture_snapshot")
+    @patch("v1.puente_vigilia.capture_snapshot")
     def test_try_capture_snapshot_handles_interrupt_cleanly(self, mock_capture_snapshot):
         mock_capture_snapshot.side_effect = KeyboardInterrupt()
 
@@ -50,8 +50,8 @@ class ModelResponseValidationTests(unittest.TestCase):
         self.assertIsNone(snapshot_path)
         self.assertEqual(snapshot_error, "snapshot_interrupted")
 
-    @patch("v1_sin_IA.puente_vigilia.subprocess.run")
-    @patch("v1_sin_IA.puente_vigilia.FACE_ENV_PYTHON")
+    @patch("v1.puente_vigilia.subprocess.run")
+    @patch("v1.puente_vigilia.FACE_ENV_PYTHON")
     def test_try_face_recognition_handles_interrupt_cleanly(
         self,
         mock_face_env_python,
@@ -65,7 +65,7 @@ class ModelResponseValidationTests(unittest.TestCase):
         self.assertIsNone(face_result)
         self.assertEqual(face_error, "face_recognition_interrupted")
 
-    @patch("v1_sin_IA.puente_vigilia.subprocess.run")
+    @patch("v1.puente_vigilia.subprocess.run")
     def test_decir_falls_back_to_silence_when_tts_fails(self, mock_run):
         target_path = Path("/tmp/test_decir_fallback.wav")
         target_path.unlink(missing_ok=True)
@@ -83,8 +83,10 @@ class ModelResponseValidationTests(unittest.TestCase):
                 target_path.with_suffix(".alaw").write_bytes(b"ALAW")
             elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path.with_suffix(".ulaw")):
                 target_path.with_suffix(".ulaw").write_bytes(b"ULAW")
+
             class Result:
                 returncode = 0
+
             return Result()
 
         mock_run.side_effect = side_effect
@@ -98,8 +100,42 @@ class ModelResponseValidationTests(unittest.TestCase):
         target_path.with_suffix(".alaw").unlink(missing_ok=True)
         target_path.with_suffix(".ulaw").unlink(missing_ok=True)
 
-    @patch("v1_sin_IA.puente_vigilia.subprocess.run")
-    @patch("v1_sin_IA.puente_vigilia.measure_audio_max_volume")
+    @patch("v1.puente_vigilia.LOCAL_RESPONSE_PLAYBACK_ENABLED", True)
+    @patch("v1.puente_vigilia.subprocess.run")
+    def test_decir_plays_response_locally_when_enabled(self, mock_run):
+        target_path = Path("/tmp/test_decir_local.wav")
+        target_path.unlink(missing_ok=True)
+        target_path.with_suffix(".alaw").unlink(missing_ok=True)
+        target_path.with_suffix(".ulaw").unlink(missing_ok=True)
+
+        def side_effect(cmd, **kwargs):
+            if cmd[0] == "say":
+                target_path.with_suffix(".aiff").write_bytes(b"AIFF")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path):
+                target_path.write_bytes(b"RIFF")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path.with_suffix(".alaw")):
+                target_path.with_suffix(".alaw").write_bytes(b"ALAW")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path.with_suffix(".ulaw")):
+                target_path.with_suffix(".ulaw").write_bytes(b"ULAW")
+
+            class Result:
+                returncode = 0
+
+            return Result()
+
+        mock_run.side_effect = side_effect
+
+        decir("hola", response_audio_path=target_path)
+
+        self.assertTrue(
+            any(call.args[0][0] == "afplay" for call in mock_run.call_args_list)
+        )
+        target_path.unlink(missing_ok=True)
+        target_path.with_suffix(".alaw").unlink(missing_ok=True)
+        target_path.with_suffix(".ulaw").unlink(missing_ok=True)
+
+    @patch("v1.puente_vigilia.subprocess.run")
+    @patch("v1.puente_vigilia.measure_audio_max_volume")
     def test_prepare_audio_for_transcription_boosts_low_audio(
         self,
         mock_measure_audio_max_volume,
@@ -114,9 +150,9 @@ class ModelResponseValidationTests(unittest.TestCase):
         command = mock_run.call_args.args[0]
         self.assertTrue(any("volume=24.0dB" in part for part in command))
 
-    @patch("v1_sin_IA.puente_vigilia.send_inference_request")
-    @patch("v1_sin_IA.puente_vigilia.get_whisper_module")
-    @patch("v1_sin_IA.puente_vigilia.prepare_audio_for_transcription")
+    @patch("v1.puente_vigilia.send_inference_request")
+    @patch("v1.puente_vigilia.get_whisper_module")
+    @patch("v1.puente_vigilia.prepare_audio_for_transcription")
     def test_transcribe_audio_times_out_cleanly(
         self,
         mock_prepare_audio_for_transcription,
@@ -142,7 +178,7 @@ class ModelResponseValidationTests(unittest.TestCase):
 
         self.assertEqual(str(ctx.exception), "local_transcription_timeout")
 
-    @patch("v1_sin_IA.puente_vigilia.importlib.import_module")
+    @patch("v1.puente_vigilia.importlib.import_module")
     def test_get_whisper_module_handles_interrupt_cleanly(self, mock_import_module):
         mock_import_module.side_effect = KeyboardInterrupt()
 
@@ -151,7 +187,7 @@ class ModelResponseValidationTests(unittest.TestCase):
 
         self.assertEqual(str(ctx.exception), "local_transcription_import_interrupted")
 
-    @patch("v1_sin_IA.puente_vigilia.subprocess.run")
+    @patch("v1.puente_vigilia.subprocess.run")
     def test_query_access_model_times_out_cleanly(self, mock_run):
         import subprocess
 
@@ -487,7 +523,7 @@ class ModelResponseValidationTests(unittest.TestCase):
             "voice_requested_open_and_known_resident_extended_face_match",
         )
 
-    def test_model_unavailable_fallback_opens_for_known_resident_with_speech(self):
+    def test_model_unavailable_fallback_denies_known_resident_with_non_open_speech(self):
         decision = resolve_model_unavailable_fallback(
             visitor_text="con fortice de whereforeb que la ofertura",
             face_result={
@@ -499,10 +535,28 @@ class ModelResponseValidationTests(unittest.TestCase):
             resident_context={},
         )
 
-        self.assertTrue(decision["should_open"])
+        self.assertFalse(decision["should_open"])
         self.assertEqual(
             decision["reason"],
-            "model_unavailable_but_known_resident_face_and_speech_present",
+            "model_unavailable_fallback",
+        )
+
+    def test_model_unavailable_fallback_denies_delivery_speech_with_known_resident_face(self):
+        decision = resolve_model_unavailable_fallback(
+            visitor_text="voy a dejar un paquete al 204",
+            face_result={
+                "matched": True,
+                "distance": 0.43,
+                "tolerance": 0.45,
+                "person": {"access_enabled": 1, "resident_id": 30},
+            },
+            resident_context={"claimed_unit": "204"},
+        )
+
+        self.assertFalse(decision["should_open"])
+        self.assertEqual(
+            decision["reason"],
+            "model_unavailable_fallback",
         )
 
     def test_model_unavailable_fallback_denies_without_known_resident_face(self):

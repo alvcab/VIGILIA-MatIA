@@ -2,15 +2,15 @@ import sys
 from pathlib import Path
 
 try:
-    from v1_sin_IA.event_store import get_recent_access_events
+    from v1.event_store import get_recent_access_events
 except ModuleNotFoundError:
     from event_store import get_recent_access_events
 
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/ver_eventos.py")
-    print("  python3 v1_sin_IA/ver_eventos.py [limite]")
+    print("  python3 v1/ver_eventos.py")
+    print("  python3 v1/ver_eventos.py [limite]")
 
 
 def format_value(value):

@@ -3,10 +3,10 @@ import subprocess
 import sys
 
 try:
-    from v1_sin_IA.runtime_paths import PROMPT_AUDIO_BASE, ensure_runtime_directories
+    from v1.runtime_paths import PROMPT_AUDIO_BASE, ensure_runtime_directories
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[2]))
-    from v1_sin_IA.runtime_paths import PROMPT_AUDIO_BASE, ensure_runtime_directories
+    from v1.runtime_paths import PROMPT_AUDIO_BASE, ensure_runtime_directories
 
 DEFAULT_OUTPUT_PATH = PROMPT_AUDIO_BASE.with_suffix(".wav")
 DEFAULT_TEXT = "Hola. Por favor espere."

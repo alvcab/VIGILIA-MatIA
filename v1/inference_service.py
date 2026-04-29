@@ -8,7 +8,7 @@ import time
 import whisper
 
 try:
-    from v1_sin_IA.runtime_paths import INFERENCE_SOCKET_PATH, ensure_runtime_directories
+    from v1.runtime_paths import INFERENCE_SOCKET_PATH, ensure_runtime_directories
 except ModuleNotFoundError:
     from runtime_paths import INFERENCE_SOCKET_PATH, ensure_runtime_directories
 

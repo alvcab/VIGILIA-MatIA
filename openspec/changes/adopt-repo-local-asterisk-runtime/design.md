@@ -25,7 +25,7 @@ Se define `.runtime/` como raiz operativa local. Alli viven:
 
 ### 2. Plantillas fuente en el repo
 
-Los archivos fuente de Asterisk permanecen versionados en `v1_sin_IA/asterisk/`.
+Los archivos fuente de Asterisk permanecen versionados en `v1/asterisk/`.
 Un script de preparacion renderiza configuraciones activas con rutas absolutas del repo.
 
 ### 3. Asterisk con `-C`

@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from v1_sin_IA.runtime_paths import (  # noqa: E402
+from v1.runtime_paths import (  # noqa: E402
     ASTERISK_ETC_DIR,
     ASTERISK_VAR_DIR,
     AUDIO_DIR,
@@ -18,10 +18,13 @@ from v1_sin_IA.runtime_paths import (  # noqa: E402
 
 
 TEMPLATE_FILES = {
-    PROJECT_ROOT / "v1_sin_IA" / "asterisk" / "asterisk.conf": ASTERISK_ETC_DIR / "asterisk.conf",
-    PROJECT_ROOT / "v1_sin_IA" / "asterisk" / "extensions.conf": ASTERISK_ETC_DIR / "extensions.conf",
-    PROJECT_ROOT / "v1_sin_IA" / "asterisk" / "pjsip.conf": ASTERISK_ETC_DIR / "pjsip.conf",
+    PROJECT_ROOT / "v1" / "asterisk" / "asterisk.conf": ASTERISK_ETC_DIR / "asterisk.conf",
+    PROJECT_ROOT / "v1" / "asterisk" / "extensions.conf": ASTERISK_ETC_DIR / "extensions.conf",
+    PROJECT_ROOT / "v1" / "asterisk" / "pjsip.conf": ASTERISK_ETC_DIR / "pjsip.conf",
 }
+
+SYSTEM_ASTERISK_ETC_DIR = Path("/usr/local/asterisk/etc/asterisk")
+SYSTEM_ASTERISK_VARLIB_DIR = Path("/usr/local/asterisk/var/lib/asterisk")
 
 
 def render_template(source_path: Path, target_path: Path, replacements: dict[str, str]):
@@ -30,6 +33,22 @@ def render_template(source_path: Path, target_path: Path, replacements: dict[str
         content = content.replace(placeholder, value)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_text(content)
+
+
+def copy_if_exists(source_path: Path, target_path: Path):
+    if not source_path.exists():
+        return
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(source_path.read_text())
+
+
+def symlink_if_missing(source_path: Path, target_path: Path):
+    if not source_path.exists():
+        return
+    if target_path.exists() or target_path.is_symlink():
+        return
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.symlink_to(source_path, target_is_directory=source_path.is_dir())
 
 
 def main():
@@ -54,7 +73,17 @@ def main():
     for source_path, target_path in TEMPLATE_FILES.items():
         render_template(source_path, target_path, replacements)
 
+    copy_if_exists(
+        SYSTEM_ASTERISK_ETC_DIR / "modules.conf",
+        ASTERISK_ETC_DIR / "modules.conf",
+    )
+    copy_if_exists(
+        SYSTEM_ASTERISK_ETC_DIR / "logger.conf",
+        ASTERISK_ETC_DIR / "logger.conf",
+    )
+
     for relative_dir in (
+        "cache",
         "lib",
         "keys",
         "agi-bin",
@@ -63,6 +92,15 @@ def main():
         "log",
     ):
         (ASTERISK_VAR_DIR / relative_dir).mkdir(parents=True, exist_ok=True)
+
+    symlink_if_missing(
+        SYSTEM_ASTERISK_VARLIB_DIR / "documentation",
+        ASTERISK_VAR_DIR / "lib" / "documentation",
+    )
+    symlink_if_missing(
+        SYSTEM_ASTERISK_VARLIB_DIR / "sounds",
+        ASTERISK_VAR_DIR / "lib" / "sounds",
+    )
 
     print(str(RUNTIME_ROOT))
 

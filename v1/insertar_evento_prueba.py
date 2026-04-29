@@ -2,15 +2,15 @@ import sys
 from datetime import datetime
 
 try:
-    from v1_sin_IA.event_store import insert_access_event
+    from v1.event_store import insert_access_event
 except ModuleNotFoundError:
     from event_store import insert_access_event
 
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/insertar_evento_prueba.py")
-    print("  python3 v1_sin_IA/insertar_evento_prueba.py [open|deny]")
+    print("  python3 v1/insertar_evento_prueba.py")
+    print("  python3 v1/insertar_evento_prueba.py [open|deny]")
 
 
 def main():

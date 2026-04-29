@@ -8,7 +8,7 @@ except ModuleNotFoundError:
     face_recognition = None
 
 try:
-    from v1_sin_IA.event_store import (
+    from v1.event_store import (
         get_authorized_people,
         insert_face_observation,
     )

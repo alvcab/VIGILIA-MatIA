@@ -80,9 +80,9 @@ def default_snapshot_path():
 
 def print_usage():
     print("Usage:")
-    print("  python3 v1_sin_IA/vto_camera.py live")
-    print("  python3 v1_sin_IA/vto_camera.py snapshot [output_path]")
-    print("  python3 v1_sin_IA/vto_camera.py url")
+    print("  python3 v1/vto_camera.py live")
+    print("  python3 v1/vto_camera.py snapshot [output_path]")
+    print("  python3 v1/vto_camera.py url")
 
 
 def main():

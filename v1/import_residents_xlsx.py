@@ -6,7 +6,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 try:
-    from v1_sin_IA.event_store import insert_resident_alias, upsert_resident
+    from v1.event_store import insert_resident_alias, upsert_resident
 except ModuleNotFoundError:
     from event_store import insert_resident_alias, upsert_resident
 
@@ -37,7 +37,7 @@ EXPECTED_HEADERS = (
 def print_usage():
     print("Uso:")
     print(
-        "  python3 v1_sin_IA/import_residents_xlsx.py "
+        "  python3 v1/import_residents_xlsx.py "
         "\"/ruta/al/archivo.xlsx\""
     )
 

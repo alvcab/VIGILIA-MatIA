@@ -9,8 +9,8 @@ RTSP_PATTERN = "vigilia_in_*_rtsp.wav"
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/ver_ultimo_rtsp_audio.py")
-    print("  python3 v1_sin_IA/ver_ultimo_rtsp_audio.py --play")
+    print("  python3 v1/ver_ultimo_rtsp_audio.py")
+    print("  python3 v1/ver_ultimo_rtsp_audio.py --play")
 
 
 def find_latest_rtsp_audio():

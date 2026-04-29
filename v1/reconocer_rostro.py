@@ -2,7 +2,7 @@ import json
 import sys
 
 try:
-    from v1_sin_IA.face_engine import (
+    from v1.face_engine import (
         is_backend_available,
         record_face_observation_from_image,
     )
@@ -15,8 +15,8 @@ except ModuleNotFoundError:
 
 def print_usage():
     print("Uso:")
-    print("  python3 v1_sin_IA/reconocer_rostro.py <image_path>")
-    print("  python3 v1_sin_IA/reconocer_rostro.py <image_path> --json")
+    print("  python3 v1/reconocer_rostro.py <image_path>")
+    print("  python3 v1/reconocer_rostro.py <image_path> --json")
 
 
 def main():
