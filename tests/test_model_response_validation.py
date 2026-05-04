@@ -418,6 +418,17 @@ class ModelResponseValidationTests(unittest.TestCase):
         )
 
         self.assertIn("un momento", response.lower())
+        self.assertIn("204", response)
+
+    def test_build_spoken_response_fallback_mentions_claimed_resident_name(self):
+        response = build_spoken_response_fallback(
+            visitor_text="hola, vengo donde alvaro",
+            decision={"should_open": False, "reason": "non_open_request_resolved_without_model_followup"},
+            face_error=None,
+            resident_context={"claimed_resident_name": "Alvaro Cabrera"},
+        )
+
+        self.assertIn("alvaro cabrera", response.lower())
 
     def test_skip_spoken_response_model_for_delivery(self):
         self.assertTrue(

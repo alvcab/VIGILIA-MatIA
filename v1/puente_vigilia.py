@@ -732,6 +732,20 @@ def build_denial_message(visitor_text, face_error, resident_context=None):
     return "Lo siento, no tengo autorización para abrir el portón."
 
 
+def build_claimed_context_wait_message(resident_context=None):
+    resident_context = resident_context or {}
+    claimed_resident_name = resident_context.get("claimed_resident_name")
+    claimed_unit = resident_context.get("claimed_unit")
+
+    if claimed_resident_name:
+        return f"Entendido. Un momento por favor con {claimed_resident_name}."
+
+    if claimed_unit:
+        return f"Entendido. Un momento por favor con el departamento {claimed_unit}."
+
+    return "Entendido. Un momento por favor."
+
+
 def detect_delivery_context(visitor_text):
     normalized_text = normalize_spanish_text(visitor_text)
     return any(keyword in normalized_text for keyword in DELIVERY_KEYWORDS)
@@ -881,7 +895,7 @@ def build_spoken_response_fallback(visitor_text, decision, face_error, resident_
         has_claimed_resident_context(resident_context)
         and not detect_open_request(visitor_text)
     ):
-        return "Entendido. Un momento por favor."
+        return build_claimed_context_wait_message(resident_context)
 
     if is_greeting_only_text(visitor_text):
         return "Hola. Dime a qué residente o departamento vienes."
