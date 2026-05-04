@@ -24,6 +24,7 @@ rm -f "$FLAG_PATH"
     exit 1
   fi
 
+  "$PROJECT_DIR/scripts/play_vto_local_hello.sh" "$LOG_PATH" || true
   export VIGILIA_DISABLE_INFERENCE_SERVICE=1
   export VIGILIA_DISABLE_VTO_SNAPSHOT=0
   export VIGILIA_ENABLE_LOCAL_FOLLOWUP_CAPTURE=0

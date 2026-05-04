@@ -222,8 +222,8 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 
 - DADO que el visitante presiona el boton del citofono
 - CUANDO Asterisk contesta la llamada entrante del VTO
-- ENTONCES el sistema puede reproducir un saludo inicial corto cuando el canal de audio de retorno es util
-- Y si el VTO no reproduce ese retorno de forma confiable, puede omitirlo para escuchar antes al visitante
+- ENTONCES el sistema puede reproducir un saludo inicial corto
+- Y si el VTO no reproduce el audio de retorno de forma confiable, el saludo puede salir por los parlantes locales del iMac para confirmar que el sistema esta escuchando
 
 #### Escenario: Captura preferente de voz por RTSP del VTO
 
@@ -238,6 +238,13 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - CUANDO el sistema atiende una llamada real del VTO
 - ENTONCES el flujo puede omitir el saludo y tono del PBX antes de grabar
 - Y prioriza una ventana de escucha mas inmediata y mas larga para captar la voz del visitante
+
+#### Escenario: Respuesta hablada local cuando el VTO no sirve como retorno
+
+- DADO que el VTO real no reproduce de forma confiable el audio de respuesta enviado por SIP
+- CUANDO el flujo decide informar rechazo, aclaracion o confirmacion al visitante
+- ENTONCES el sistema puede reproducir esa respuesta por los parlantes locales del iMac
+- Y no depende de `Playback(...)` hacia el VTO para completar el flujo audible
 
 #### Escenario: Refuerzo de audio bajo antes de transcribir
 

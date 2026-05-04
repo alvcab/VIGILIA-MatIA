@@ -11,7 +11,7 @@ VTO_AUDIO_PASS="${VTO_AUDIO_PASS:-Splitreset6901}"
 VTO_AUDIO_RTSP_PORT="${VTO_AUDIO_RTSP_PORT:-554}"
 VTO_AUDIO_CHANNEL="${VTO_AUDIO_CHANNEL:-1}"
 VTO_AUDIO_SUBTYPE="${VTO_AUDIO_SUBTYPE:-0}"
-VTO_AUDIO_SECONDS="${VTO_AUDIO_SECONDS:-5}"
+VTO_AUDIO_SECONDS="${VTO_AUDIO_SECONDS:-2}"
 
 AUDIO_PATH="${1:-}"
 RESPONSE_AUDIO_PATH="${2:-}"
@@ -87,11 +87,23 @@ mkdir -p "$(dirname "$LOG_PATH")"
   fi
 
   log_state "processing"
-  export VIGILIA_DISABLE_INFERENCE_SERVICE=1
+  # Keep the resident Whisper service enabled here to avoid paying model load
+  # time on every VTO call. The second-stage voice flow otherwise takes too
+  # long and the visitor hears no timely response.
+  export VIGILIA_DISABLE_INFERENCE_SERVICE=0
+  export VIGILIA_INFERENCE_SERVICE_TIMEOUT_SECONDS=4
+  export VIGILIA_DISABLE_LOCAL_TRANSCRIPTION_FALLBACK=1
+  export VIGILIA_SILENT_AUDIO_SHORT_CIRCUIT_DB=-40
   export VIGILIA_DISABLE_VTO_SNAPSHOT=0
   export VIGILIA_ENABLE_LOCAL_FOLLOWUP_CAPTURE=0
-  export VIGILIA_PLAY_RESPONSE_LOCALLY=0
-  echo "[VIGILIA] inference_service_disabled_for_vto=1"
+  export VIGILIA_PLAY_RESPONSE_LOCALLY=1
+  export VIGILIA_SKIP_RESPONSE_AUDIO_RENDER=1
+  echo "[VIGILIA] inference_service_disabled_for_vto=0"
+  echo "[VIGILIA] inference_service_timeout_seconds=$VIGILIA_INFERENCE_SERVICE_TIMEOUT_SECONDS"
+  echo "[VIGILIA] local_transcription_fallback_disabled=$VIGILIA_DISABLE_LOCAL_TRANSCRIPTION_FALLBACK"
+  echo "[VIGILIA] silent_audio_short_circuit_db=$VIGILIA_SILENT_AUDIO_SHORT_CIRCUIT_DB"
+  echo "[VIGILIA] play_response_locally=$VIGILIA_PLAY_RESPONSE_LOCALLY"
+  echo "[VIGILIA] skip_response_audio_render=$VIGILIA_SKIP_RESPONSE_AUDIO_RENDER"
   "$RUN_VIGILIA_SCRIPT" "$SELECTED_AUDIO_PATH" "$RESPONSE_AUDIO_PATH"
 
   if [[ -f "$RESPONSE_AUDIO_PATH" ]]; then

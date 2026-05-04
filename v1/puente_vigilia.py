@@ -67,6 +67,14 @@ SPOKEN_RESPONSE_TIMEOUT_SECONDS = float(
 INFERENCE_SERVICE_TIMEOUT_SECONDS = float(
     os.environ.get("VIGILIA_INFERENCE_SERVICE_TIMEOUT_SECONDS", "8")
 )
+DISABLE_LOCAL_TRANSCRIPTION_FALLBACK = os.environ.get(
+    "VIGILIA_DISABLE_LOCAL_TRANSCRIPTION_FALLBACK",
+    "0",
+).strip().lower() in {"1", "true", "yes", "on"}
+SILENT_AUDIO_SHORT_CIRCUIT_DB = os.environ.get(
+    "VIGILIA_SILENT_AUDIO_SHORT_CIRCUIT_DB",
+    "",
+).strip()
 AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS = int(os.environ.get("VIGILIA_AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS", "12"))
 AUDIO_TARGET_MAX_DB = float(os.environ.get("VIGILIA_AUDIO_TARGET_MAX_DB", "-3"))
 AUDIO_MAX_GAIN_DB = float(os.environ.get("VIGILIA_AUDIO_MAX_GAIN_DB", "24"))
@@ -78,6 +86,10 @@ LOCAL_RESPONSE_PLAYBACK_ENABLED = os.environ.get(
 LOCAL_RESPONSE_PLAYBACK_TIMEOUT_SECONDS = float(
     os.environ.get("VIGILIA_LOCAL_RESPONSE_PLAYBACK_TIMEOUT_SECONDS", "10")
 )
+SKIP_RESPONSE_AUDIO_RENDER = os.environ.get(
+    "VIGILIA_SKIP_RESPONSE_AUDIO_RENDER",
+    "0",
+).strip().lower() in {"1", "true", "yes", "on"}
 PREFER_DIRECT_LOCAL_TTS = os.environ.get(
     "VIGILIA_PREFER_DIRECT_LOCAL_TTS",
     "1",
@@ -302,6 +314,19 @@ def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     ensure_runtime_directories()
     started_at = time.perf_counter()
     print(f"IA dice: {texto}")
+
+    if SKIP_RESPONSE_AUDIO_RENDER and LOCAL_RESPONSE_PLAYBACK_ENABLED:
+        try:
+            subprocess.Popen(
+                ["say", "-v", "Monica", texto],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print(f"[TIMING] tts_seconds={time.perf_counter() - started_at:.3f}")
+            return
+        except Exception as exc:
+            print(f"[TTS] fast_local_tts error={exc}")
+
     direct_local_tts_started = start_direct_local_tts(texto)
     response_audio_path = Path(response_audio_path)
     response_audio_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1644,15 +1669,61 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
 
     created_at = datetime.now().isoformat(timespec="seconds")
     started_at = time.perf_counter()
-    snapshot_path, snapshot_error = try_capture_snapshot()
+    snapshot_path = None
+    snapshot_error = None
     transcription_error = None
-    try:
-        result = transcribe_audio(ruta_audio)
-    except Exception as exc:
-        transcription_error = str(exc)
-        print(f"[AUDIO] transcription_failed error={transcription_error}")
-        result = {"text": ""}
-    face_result, face_error = try_face_recognition(snapshot_path)
+    face_result = None
+    face_error = None
+
+    short_circuit_threshold = None
+    if SILENT_AUDIO_SHORT_CIRCUIT_DB:
+        try:
+            short_circuit_threshold = float(SILENT_AUDIO_SHORT_CIRCUIT_DB)
+        except ValueError:
+            print(f"[AUDIO] invalid_silent_audio_short_circuit_db={SILENT_AUDIO_SHORT_CIRCUIT_DB}")
+
+    if short_circuit_threshold is not None:
+        try:
+            max_volume_db = measure_audio_max_volume(ruta_audio)
+        except Exception as exc:
+            print(f"[AUDIO] short_circuit_measure_failed error={exc}")
+            max_volume_db = None
+
+        if max_volume_db is not None:
+            print(f"[AUDIO] short_circuit_max_volume_db={max_volume_db:.1f}")
+            if max_volume_db <= short_circuit_threshold:
+                print(
+                    "[AUDIO] silent_short_circuit "
+                    f"threshold_db={short_circuit_threshold:.1f}"
+                )
+                result = {"text": ""}
+            else:
+                snapshot_path, snapshot_error = try_capture_snapshot()
+                try:
+                    result = transcribe_audio(ruta_audio)
+                except Exception as exc:
+                    transcription_error = str(exc)
+                    print(f"[AUDIO] transcription_failed error={transcription_error}")
+                    result = {"text": ""}
+                face_result, face_error = try_face_recognition(snapshot_path)
+        else:
+            snapshot_path, snapshot_error = try_capture_snapshot()
+            try:
+                result = transcribe_audio(ruta_audio)
+            except Exception as exc:
+                transcription_error = str(exc)
+                print(f"[AUDIO] transcription_failed error={transcription_error}")
+                result = {"text": ""}
+            face_result, face_error = try_face_recognition(snapshot_path)
+    else:
+        snapshot_path, snapshot_error = try_capture_snapshot()
+        try:
+            result = transcribe_audio(ruta_audio)
+        except Exception as exc:
+            transcription_error = str(exc)
+            print(f"[AUDIO] transcription_failed error={transcription_error}")
+            result = {"text": ""}
+        face_result, face_error = try_face_recognition(snapshot_path)
 
     print(f"[TIMING] pre_decision_seconds={time.perf_counter() - started_at:.3f}")
     texto_vecino = result["text"].lower().strip()
@@ -2126,6 +2197,8 @@ def transcribe_audio(ruta_audio):
     if service_payload and service_payload.get("ok"):
         print(f"[TIMING] transcription_service_seconds={service_payload.get('timing_seconds', 0.0):.3f}")
         return {"text": service_payload["text"]}
+    if DISABLE_LOCAL_TRANSCRIPTION_FALLBACK:
+        raise RuntimeError("transcription_service_unavailable_without_local_fallback")
 
     started_at = time.perf_counter()
     previous_handler = signal.getsignal(signal.SIGALRM)
