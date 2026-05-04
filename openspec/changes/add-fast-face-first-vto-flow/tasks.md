@@ -1,0 +1,6 @@
+- [x] 1. Documentar el flujo de rostro primero para el VTO
+- [x] 2. Agregar una verificacion facial rapida antes de la captura de voz
+- [x] 3. Abrir y terminar la llamada si existe match facial confiable
+- [x] 4. Mantener el flujo de voz si no existe match facial confiable
+- [x] 5. Reutilizar un servicio persistente de reconocimiento facial para bajar la latencia del flujo rapido
+- [x] 6. Priorizar snapshot HTTP del VTO con fallback a RTSP para reducir la latencia de captura

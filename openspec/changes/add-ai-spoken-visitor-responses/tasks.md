@@ -1,0 +1,6 @@
+- [x] 1. Documentar el comportamiento nuevo en las specs de `visitor-access`
+- [x] 2. Agregar funciones para generar respuesta hablada por IA sin afectar la decision de apertura
+- [x] 3. Conectar la respuesta generada al flujo `procesar_audio(...)`
+- [x] 4. Agregar tests para paquetes, saludos y fallback seguro
+- [x] 5. Validar con la suite de tests existente
+- [x] 6. Agregar segundo turno local desde el Mac para aclarar residente o departamento

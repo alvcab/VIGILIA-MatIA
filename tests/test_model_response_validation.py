@@ -3,13 +3,20 @@ from unittest.mock import patch
 from pathlib import Path
 
 from v1.event_store import normalize_phrase_text
+from v1.vto_camera import build_http_snapshot_url
 from v1.puente_vigilia import (
     build_gate_open_url,
     build_gate_open_urls,
+    build_local_audio_capture_command,
     build_denial_message,
+    build_spoken_response,
+    build_spoken_response_fallback,
+    capture_fast_face_entry_match,
+    capture_fast_entry_snapshot_and_face,
     capture_snapshot_and_face,
     classify_face_match_band,
     decir,
+    detect_delivery_context,
     detect_open_request,
     face_result_distance,
     face_result_resident_matches_claim,
@@ -17,20 +24,43 @@ from v1.puente_vigilia import (
     has_known_resident_extended_face_match,
     has_meaningful_speech,
     is_greeting_only_text,
+    is_unintelligible_transcript,
     normalize_model_token,
+    normalize_spoken_response,
     prepare_audio_for_transcription,
+    query_spoken_response_model,
+    should_request_followup_turn,
+    should_skip_decision_model,
+    should_skip_spoken_response_model,
     transcribe_audio,
     query_access_model,
     retry_face_recognition_for_open_request,
     resolve_model_unavailable_fallback,
     resolve_claimed_resident_context,
     resolve_access_decision,
+    send_service_request,
     try_capture_snapshot,
     try_face_recognition,
 )
 
 
 class ModelResponseValidationTests(unittest.TestCase):
+    def test_build_http_snapshot_url_includes_channel(self):
+        self.assertEqual(
+            build_http_snapshot_url(ip="192.168.1.10", port=8080, channel=3, path="/cgi-bin/snapshot.cgi"),
+            "http://192.168.1.10:8080/cgi-bin/snapshot.cgi?channel=3",
+        )
+
+    def test_send_service_request_returns_none_when_socket_missing(self):
+        result = send_service_request(
+            action="health",
+            payload={},
+            timeout_seconds=1,
+            socket_path=Path("/tmp/vigilia_socket_missing.sock"),
+        )
+
+        self.assertIsNone(result)
+
     def test_build_gate_open_url_uses_requested_channel(self):
         self.assertTrue(build_gate_open_url(channel=2).endswith("channel=2"))
 
@@ -41,6 +71,27 @@ class ModelResponseValidationTests(unittest.TestCase):
         self.assertIn("UserID=101", urls[1])
         self.assertIn("Type=Remote", urls[1])
 
+    def test_build_local_audio_capture_command_uses_audio_device_index_for_numeric_spec(self):
+        command = build_local_audio_capture_command(
+            output_path="/tmp/followup.wav",
+            duration_seconds=4,
+            device_spec="1",
+        )
+
+        self.assertIn("-audio_device_index", command)
+        self.assertIn("1", command)
+        self.assertIn("", command)
+
+    def test_build_local_audio_capture_command_normalizes_colon_prefixed_numeric_spec(self):
+        command = build_local_audio_capture_command(
+            output_path="/tmp/followup.wav",
+            duration_seconds=4,
+            device_spec=":1",
+        )
+
+        self.assertIn("-audio_device_index", command)
+        self.assertIn("1", command)
+
     @patch("v1.puente_vigilia.capture_snapshot")
     def test_try_capture_snapshot_handles_interrupt_cleanly(self, mock_capture_snapshot):
         mock_capture_snapshot.side_effect = KeyboardInterrupt()
@@ -49,6 +100,13 @@ class ModelResponseValidationTests(unittest.TestCase):
 
         self.assertIsNone(snapshot_path)
         self.assertEqual(snapshot_error, "snapshot_interrupted")
+
+    @patch("v1.puente_vigilia.DISABLE_VTO_SNAPSHOT", True)
+    def test_try_capture_snapshot_can_be_disabled_by_environment(self):
+        snapshot_path, snapshot_error = try_capture_snapshot()
+
+        self.assertIsNone(snapshot_path)
+        self.assertEqual(snapshot_error, "snapshot_disabled")
 
     @patch("v1.puente_vigilia.subprocess.run")
     @patch("v1.puente_vigilia.FACE_ENV_PYTHON")
@@ -65,8 +123,32 @@ class ModelResponseValidationTests(unittest.TestCase):
         self.assertIsNone(face_result)
         self.assertEqual(face_error, "face_recognition_interrupted")
 
+    @patch("v1.puente_vigilia.send_service_request")
+    def test_try_face_recognition_uses_face_service_when_available(self, mock_send_service_request):
+        mock_send_service_request.return_value = {
+            "ok": True,
+            "backend_available": True,
+            "matched": True,
+            "distance": 0.31,
+            "matched_person_name": "Alvaro",
+            "person": {"resident_id": 1, "access_enabled": 1},
+        }
+
+        face_result, face_error = try_face_recognition(
+            "/tmp/snapshot.jpg",
+            extra_env={"VIGILIA_FACE_ENCODING_DOWNSCALE_FACTOR": "4"},
+        )
+
+        self.assertTrue(face_result["matched"])
+        self.assertIsNone(face_error)
+        self.assertEqual(
+            mock_send_service_request.call_args.kwargs["payload"]["downscale_factor"],
+            "4",
+        )
+
+    @patch("v1.puente_vigilia.subprocess.Popen")
     @patch("v1.puente_vigilia.subprocess.run")
-    def test_decir_falls_back_to_silence_when_tts_fails(self, mock_run):
+    def test_decir_falls_back_to_silence_when_tts_fails(self, mock_run, _mock_popen):
         target_path = Path("/tmp/test_decir_fallback.wav")
         target_path.unlink(missing_ok=True)
         target_path.with_suffix(".alaw").unlink(missing_ok=True)
@@ -100,9 +182,11 @@ class ModelResponseValidationTests(unittest.TestCase):
         target_path.with_suffix(".alaw").unlink(missing_ok=True)
         target_path.with_suffix(".ulaw").unlink(missing_ok=True)
 
+    @patch("v1.puente_vigilia.PREFER_DIRECT_LOCAL_TTS", True)
     @patch("v1.puente_vigilia.LOCAL_RESPONSE_PLAYBACK_ENABLED", True)
+    @patch("v1.puente_vigilia.subprocess.Popen")
     @patch("v1.puente_vigilia.subprocess.run")
-    def test_decir_plays_response_locally_when_enabled(self, mock_run):
+    def test_decir_plays_response_locally_when_enabled(self, mock_run, _mock_popen):
         target_path = Path("/tmp/test_decir_local.wav")
         target_path.unlink(missing_ok=True)
         target_path.with_suffix(".alaw").unlink(missing_ok=True)
@@ -127,9 +211,43 @@ class ModelResponseValidationTests(unittest.TestCase):
 
         decir("hola", response_audio_path=target_path)
 
-        self.assertTrue(
-            any(call.args[0][0] == "afplay" for call in mock_run.call_args_list)
-        )
+        self.assertEqual(mock_run.call_args_list[0].args[0][0], "say")
+        target_path.unlink(missing_ok=True)
+        target_path.with_suffix(".alaw").unlink(missing_ok=True)
+        target_path.with_suffix(".ulaw").unlink(missing_ok=True)
+
+    @patch("v1.puente_vigilia.PREFER_DIRECT_LOCAL_TTS", True)
+    @patch("v1.puente_vigilia.LOCAL_RESPONSE_PLAYBACK_ENABLED", True)
+    @patch("v1.puente_vigilia.subprocess.Popen")
+    @patch("v1.puente_vigilia.subprocess.run")
+    def test_decir_falls_back_to_afplay_when_direct_local_tts_cannot_start(self, mock_run, mock_popen):
+        target_path = Path("/tmp/test_decir_local_fallback.wav")
+        target_path.unlink(missing_ok=True)
+        target_path.with_suffix(".alaw").unlink(missing_ok=True)
+        target_path.with_suffix(".ulaw").unlink(missing_ok=True)
+
+        def run_side_effect(cmd, **kwargs):
+            if cmd[0] == "say" and "-o" not in cmd:
+                raise RuntimeError("say_unavailable")
+            if cmd[0] == "say":
+                target_path.with_suffix(".aiff").write_bytes(b"AIFF")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path):
+                target_path.write_bytes(b"RIFF")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path.with_suffix(".alaw")):
+                target_path.with_suffix(".alaw").write_bytes(b"ALAW")
+            elif cmd[0] == "ffmpeg" and cmd[-1] == str(target_path.with_suffix(".ulaw")):
+                target_path.with_suffix(".ulaw").write_bytes(b"ULAW")
+
+            class Result:
+                returncode = 0
+
+            return Result()
+
+        mock_run.side_effect = run_side_effect
+
+        decir("hola", response_audio_path=target_path)
+
+        self.assertEqual(mock_popen.call_args_list[-1].args[0][0], "afplay")
         target_path.unlink(missing_ok=True)
         target_path.with_suffix(".alaw").unlink(missing_ok=True)
         target_path.with_suffix(".ulaw").unlink(missing_ok=True)
@@ -204,6 +322,25 @@ class ModelResponseValidationTests(unittest.TestCase):
 
         self.assertEqual(str(ctx.exception), "ollama_query_timeout")
 
+    @patch("v1.puente_vigilia.subprocess.run")
+    def test_query_spoken_response_model_times_out_cleanly(self, mock_run):
+        import subprocess
+
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["ollama", "run", "vigilia-mini"],
+            timeout=3,
+        )
+
+        with self.assertRaises(RuntimeError) as ctx:
+            query_spoken_response_model(
+                visitor_text="voy a dejar un paquete al 204",
+                decision={"should_open": False, "reason": "model_did_not_return_open"},
+                resident_context={"claimed_unit": "204"},
+                face_error=None,
+            )
+
+        self.assertEqual(str(ctx.exception), "spoken_response_query_timeout")
+
     def test_accepts_exact_open_token(self):
         self.assertEqual(normalize_model_token("OPEN"), "OPEN")
 
@@ -212,12 +349,155 @@ class ModelResponseValidationTests(unittest.TestCase):
             has_meaningful_speech("con fortice de whereforeb que la ofertura")
         )
 
+    def test_detects_unintelligible_transcript_from_mixed_unicode_garbage(self):
+        self.assertTrue(is_unintelligible_transcript("服o"))
+
+    def test_detects_unintelligible_transcript_from_short_irrelevant_phrase(self):
+        self.assertTrue(is_unintelligible_transcript("dank applause"))
+
+    def test_does_not_mark_simple_spanish_phrase_as_unintelligible(self):
+        self.assertFalse(is_unintelligible_transcript("hola"))
+
+    def test_does_not_mark_greeting_phrase_as_unintelligible(self):
+        self.assertFalse(is_unintelligible_transcript("hola buenas"))
+
+    def test_detects_delivery_context(self):
+        self.assertTrue(detect_delivery_context("voy a dejar un paquete al 204"))
+
     def test_accepts_exact_token_with_whitespace(self):
         self.assertEqual(normalize_model_token("  hola \n"), "HOLA")
 
     def test_rejects_verbose_model_response(self):
         verbose_response = "VALID_TOKENS: OPEN, ERROR, HOLA"
         self.assertIsNone(normalize_model_token(verbose_response))
+
+    def test_skip_decision_model_for_delivery(self):
+        self.assertTrue(
+            should_skip_decision_model(
+                visitor_text="voy a dejar un paquete al 204",
+                resident_context={"claimed_unit": "204"},
+            )
+        )
+
+    def test_skip_decision_model_for_greeting_with_claimed_context(self):
+        self.assertTrue(
+            should_skip_decision_model(
+                visitor_text="hola, vengo donde el 204",
+                resident_context={"claimed_unit": "204"},
+            )
+        )
+
+    def test_do_not_skip_decision_model_for_open_request(self):
+        self.assertFalse(
+            should_skip_decision_model(
+                visitor_text="abre el porton por favor",
+                resident_context={},
+            )
+        )
+
+    def test_normalize_spoken_response_rejects_overlong_output(self):
+        self.assertIsNone(normalize_spoken_response("palabra " * 40))
+
+    def test_build_spoken_response_fallback_for_delivery(self):
+        response = build_spoken_response_fallback(
+            visitor_text="voy a dejar un paquete al 204",
+            decision={"should_open": False, "reason": "model_did_not_return_open"},
+            face_error=None,
+            resident_context={"claimed_unit": "204"},
+        )
+
+        self.assertIn("paquete", response.lower())
+        self.assertIn("conserjería", response.lower())
+
+    def test_build_spoken_response_fallback_for_claimed_context_without_open_request(self):
+        response = build_spoken_response_fallback(
+            visitor_text="hola, vengo donde el 204",
+            decision={"should_open": False, "reason": "non_open_request_resolved_without_model_followup"},
+            face_error=None,
+            resident_context={"claimed_unit": "204"},
+        )
+
+        self.assertIn("un momento", response.lower())
+
+    def test_skip_spoken_response_model_for_delivery(self):
+        self.assertTrue(
+            should_skip_spoken_response_model(
+                visitor_text="voy a dejar un paquete al 204",
+                decision={"should_open": False},
+                resident_context={"claimed_unit": "204"},
+            )
+        )
+
+    def test_skip_spoken_response_model_for_claimed_context_without_open_request(self):
+        self.assertTrue(
+            should_skip_spoken_response_model(
+                visitor_text="hola, vengo donde el 204",
+                decision={"should_open": False},
+                resident_context={"claimed_unit": "204"},
+            )
+        )
+
+    @patch("v1.puente_vigilia.DISABLE_VTO_SNAPSHOT", True)
+    @patch("v1.puente_vigilia.ENABLE_LOCAL_FOLLOWUP_CAPTURE", True)
+    def test_request_followup_turn_for_greeting_without_claimed_context(self):
+        self.assertTrue(
+            should_request_followup_turn(
+                visitor_text="hola",
+                resident_context={},
+                decision={"should_open": False, "reason": "non_open_request_resolved_without_model"},
+            )
+        )
+
+    @patch("v1.puente_vigilia.DISABLE_VTO_SNAPSHOT", True)
+    @patch("v1.puente_vigilia.ENABLE_LOCAL_FOLLOWUP_CAPTURE", True)
+    def test_do_not_request_followup_turn_for_delivery(self):
+        self.assertFalse(
+            should_request_followup_turn(
+                visitor_text="voy a dejar un paquete al 204",
+                resident_context={},
+                decision={"should_open": False, "reason": "non_open_request_resolved_without_model"},
+            )
+        )
+
+    @patch("v1.puente_vigilia.DISABLE_VTO_SNAPSHOT", True)
+    @patch("v1.puente_vigilia.ENABLE_LOCAL_FOLLOWUP_CAPTURE", True)
+    def test_do_not_request_followup_turn_when_claimed_context_already_present(self):
+        self.assertFalse(
+            should_request_followup_turn(
+                visitor_text="hola, vengo donde el 204",
+                resident_context={"claimed_unit": "204"},
+                decision={"should_open": False, "reason": "non_open_request_resolved_without_model"},
+            )
+        )
+
+    @patch("v1.puente_vigilia.query_spoken_response_model")
+    def test_build_spoken_response_uses_valid_model_text(self, mock_query_spoken_response_model):
+        mock_query_spoken_response_model.return_value = (
+            "Por favor deje el paquete en conserjería."
+        )
+
+        response = build_spoken_response(
+            visitor_text="voy a dejar un paquete al 204",
+            decision={"should_open": False, "reason": "model_did_not_return_open"},
+            face_error=None,
+            resident_context={"claimed_unit": "204"},
+        )
+
+        self.assertIn("conserjería", response.lower())
+        mock_query_spoken_response_model.assert_not_called()
+
+    @patch("v1.puente_vigilia.query_spoken_response_model")
+    def test_build_spoken_response_falls_back_on_invalid_model_text(self, mock_query_spoken_response_model):
+        mock_query_spoken_response_model.return_value = "palabra " * 40
+
+        response = build_spoken_response(
+            visitor_text="voy a dejar un paquete al 204",
+            decision={"should_open": False, "reason": "model_did_not_return_open"},
+            face_error=None,
+            resident_context={"claimed_unit": "204"},
+        )
+
+        self.assertIn("conserjería", response.lower())
 
     def test_does_not_open_on_invalid_verbose_response(self):
         decision = resolve_access_decision(
@@ -228,6 +508,26 @@ class ModelResponseValidationTests(unittest.TestCase):
 
         self.assertFalse(decision["should_open"])
         self.assertEqual(decision["reason"], "model_response_invalid_token")
+
+    def test_hola_token_denies_without_treating_response_as_invalid(self):
+        decision = resolve_access_decision(
+            visitor_text="hola, buenas tardes",
+            face_result=None,
+            model_response="HOLA",
+        )
+
+        self.assertFalse(decision["should_open"])
+        self.assertEqual(decision["reason"], "model_returned_hola")
+
+    def test_error_token_denies_without_treating_response_as_invalid(self):
+        decision = resolve_access_decision(
+            visitor_text="no se entiende",
+            face_result=None,
+            model_response="ERROR",
+        )
+
+        self.assertFalse(decision["should_open"])
+        self.assertEqual(decision["reason"], "model_returned_error")
 
     def test_detects_fuzzy_open_request_from_noisy_transcript(self):
         self.assertTrue(detect_open_request("abril por tom por favor"))
@@ -270,6 +570,55 @@ class ModelResponseValidationTests(unittest.TestCase):
     def test_capture_snapshot_and_face_returns_four_values(self):
         result = capture_snapshot_and_face.__name__
         self.assertEqual(result, "capture_snapshot_and_face")
+
+    @patch("v1.puente_vigilia.time.sleep")
+    @patch("v1.puente_vigilia.FAST_FACE_ENTRY_ATTEMPTS", 3)
+    @patch("v1.puente_vigilia.capture_fast_entry_snapshot_and_face")
+    def test_capture_fast_face_entry_match_retries_until_trusted_face(
+        self,
+        mock_capture_fast_entry_snapshot_and_face,
+        _mock_sleep,
+    ):
+        mock_capture_fast_entry_snapshot_and_face.side_effect = [
+            ("snap1.jpg", None, None, "face_encoding_not_found"),
+            (
+                "snap2.jpg",
+                None,
+                {
+                    "matched": True,
+                    "distance": 0.34,
+                    "tolerance": 0.45,
+                    "person": {"resident_id": 1, "access_enabled": 1},
+                },
+                None,
+            ),
+        ]
+
+        snapshot_path, snapshot_error, face_result, face_error = capture_fast_face_entry_match()
+
+        self.assertEqual(snapshot_path, "snap2.jpg")
+        self.assertIsNone(snapshot_error)
+        self.assertTrue(face_result["matched"])
+        self.assertIsNone(face_error)
+
+    @patch("v1.puente_vigilia.capture_snapshot")
+    @patch("v1.puente_vigilia.try_face_recognition")
+    @patch("v1.puente_vigilia.VTO_FAST_FACE_SUBTYPE", 1)
+    def test_capture_fast_entry_snapshot_and_face_uses_fast_face_subtype(
+        self,
+        mock_try_face_recognition,
+        mock_capture_snapshot,
+    ):
+        mock_capture_snapshot.return_value = "captures/fast.jpg"
+        mock_try_face_recognition.return_value = ({"matched": False}, None)
+
+        snapshot_path, snapshot_error, face_result, face_error = capture_fast_entry_snapshot_and_face()
+
+        self.assertEqual(snapshot_path, "captures/fast.jpg")
+        self.assertIsNone(snapshot_error)
+        self.assertEqual(face_result, {"matched": False})
+        self.assertIsNone(face_error)
+        self.assertEqual(mock_capture_snapshot.call_args.kwargs["subtype"], 1)
 
     def test_face_result_distance_returns_none_without_distance(self):
         self.assertIsNone(face_result_distance(None))
@@ -380,6 +729,25 @@ class ModelResponseValidationTests(unittest.TestCase):
             face_result={
                 "matched": True,
                 "distance": 0.37,
+                "tolerance": 0.45,
+                "person": {"access_enabled": 1, "resident_id": 10},
+            },
+            model_response=None,
+            resident_context={},
+        )
+
+        self.assertTrue(decision["should_open"])
+        self.assertEqual(
+            decision["reason"],
+            "known_resident_button_press_face_match",
+        )
+
+    def test_opens_extended_face_for_known_resident_without_speech(self):
+        decision = resolve_access_decision(
+            visitor_text="",
+            face_result={
+                "matched": False,
+                "distance": 0.471,
                 "tolerance": 0.45,
                 "person": {"access_enabled": 1, "resident_id": 10},
             },

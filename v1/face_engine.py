@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from pathlib import Path
 
@@ -20,7 +21,9 @@ except ModuleNotFoundError:
 
 
 REFERENCE_ENCODING_CACHE = {}
-FACE_ENCODING_DOWNSCALE_FACTOR = 2
+FACE_ENCODING_DOWNSCALE_FACTOR = max(
+    1, int(os.environ.get("VIGILIA_FACE_ENCODING_DOWNSCALE_FACTOR", "2"))
+)
 
 
 def is_backend_available():
@@ -35,16 +38,23 @@ def require_backend():
         )
 
 
-def load_face_encoding(image_path):
+def resolve_downscale_factor(downscale_factor=None):
+    if downscale_factor is None:
+        return FACE_ENCODING_DOWNSCALE_FACTOR
+    return max(1, int(downscale_factor))
+
+
+def load_face_encoding(image_path, downscale_factor=None):
     started_at = time.perf_counter()
     require_backend()
 
+    resolved_downscale_factor = resolve_downscale_factor(downscale_factor)
     image_path = Path(image_path)
     image = face_recognition.load_image_file(str(image_path))
-    if FACE_ENCODING_DOWNSCALE_FACTOR > 1:
+    if resolved_downscale_factor > 1:
         image = image[
-            ::FACE_ENCODING_DOWNSCALE_FACTOR,
-            ::FACE_ENCODING_DOWNSCALE_FACTOR,
+            ::resolved_downscale_factor,
+            ::resolved_downscale_factor,
         ].copy()
 
     encodings = face_recognition.face_encodings(image)
@@ -55,27 +65,28 @@ def load_face_encoding(image_path):
     print(
         f"[TIMING] face_encoding_seconds path={image_path} "
         f"value={time.perf_counter() - started_at:.3f} "
-        f"downscale={FACE_ENCODING_DOWNSCALE_FACTOR}"
+        f"downscale={resolved_downscale_factor}"
     )
     return encodings[0]
 
 
-def load_face_encoding_cached(image_path):
+def load_face_encoding_cached(image_path, downscale_factor=None):
     image_path = Path(image_path)
     cache_key = None
+    resolved_downscale_factor = resolve_downscale_factor(downscale_factor)
 
     try:
         stat = image_path.stat()
-        cache_key = (str(image_path.resolve()), stat.st_mtime_ns)
+        cache_key = (str(image_path.resolve()), stat.st_mtime_ns, resolved_downscale_factor)
     except FileNotFoundError:
-        return load_face_encoding(image_path)
+        return load_face_encoding(image_path, downscale_factor=resolved_downscale_factor)
 
     cached_encoding = REFERENCE_ENCODING_CACHE.get(cache_key)
     if cached_encoding is not None:
         print(f"[TIMING] face_encoding_cache_hit path={image_path}")
         return cached_encoding
 
-    encoding = load_face_encoding(image_path)
+    encoding = load_face_encoding(image_path, downscale_factor=resolved_downscale_factor)
     REFERENCE_ENCODING_CACHE.clear()
     REFERENCE_ENCODING_CACHE[cache_key] = encoding
     return encoding
@@ -86,11 +97,11 @@ def encode_face_as_json(image_path):
     return json.dumps(encoding.tolist())
 
 
-def compare_against_registry(image_path, tolerance=0.45):
+def compare_against_registry(image_path, tolerance=0.45, downscale_factor=None):
     started_at = time.perf_counter()
     require_backend()
 
-    unknown_encoding = load_face_encoding(image_path)
+    unknown_encoding = load_face_encoding(image_path, downscale_factor=downscale_factor)
     unknown_encoding_ready_at = time.perf_counter()
     print(
         "[TIMING] face_unknown_encoding_ready_seconds "
@@ -112,7 +123,10 @@ def compare_against_registry(image_path, tolerance=0.45):
             continue
 
         try:
-            known_encoding = load_face_encoding_cached(reference_image_path)
+            known_encoding = load_face_encoding_cached(
+                reference_image_path,
+                downscale_factor=downscale_factor,
+            )
         except Exception:
             continue
 
@@ -154,12 +168,12 @@ def compare_against_registry(image_path, tolerance=0.45):
     }
 
 
-def record_face_observation_from_image(image_path, tolerance=0.45):
+def record_face_observation_from_image(image_path, tolerance=0.45, downscale_factor=None):
     started_at = time.perf_counter()
     require_backend()
 
     image_path = str(image_path)
-    unknown_encoding = load_face_encoding(image_path)
+    unknown_encoding = load_face_encoding(image_path, downscale_factor=downscale_factor)
     comparison = compare_against_registry_with_encoding(
         unknown_encoding=unknown_encoding,
         tolerance=tolerance,
@@ -200,7 +214,7 @@ def compare_against_registry_with_encoding(unknown_encoding, tolerance=0.45):
             continue
 
         try:
-            known_encoding = load_face_encoding(reference_image_path)
+            known_encoding = load_face_encoding_cached(reference_image_path)
         except Exception:
             continue
 

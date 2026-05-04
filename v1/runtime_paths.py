@@ -21,6 +21,12 @@ INFERENCE_SOCKET_PATH = Path(
 INFERENCE_LOG_PATH = Path(
     os.environ.get("VIGILIA_INFERENCE_LOG", LOG_DIR / "vigilia_inference.log")
 )
+FACE_SERVICE_SOCKET_PATH = Path(
+    os.environ.get("VIGILIA_FACE_SERVICE_SOCKET", "/tmp/vigilia_face.sock")
+)
+FACE_SERVICE_LOG_PATH = Path(
+    os.environ.get("VIGILIA_FACE_SERVICE_LOG", LOG_DIR / "vigilia_face.log")
+)
 DEFAULT_AUDIO_PATH = Path(
     os.environ.get("VIGILIA_DEFAULT_AUDIO_PATH", AUDIO_DIR / "vecino.wav")
 )

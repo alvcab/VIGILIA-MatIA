@@ -1,0 +1,3 @@
+- [x] 1. Documentar el cambio de comportamiento del VTO
+- [x] 2. Ajustar el dialplan para capturar antes y durante mas tiempo
+- [x] 3. Mantener `hello-only` como ruta de diagnostico

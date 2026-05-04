@@ -88,6 +88,9 @@ mkdir -p "$(dirname "$LOG_PATH")"
 
   log_state "processing"
   export VIGILIA_DISABLE_INFERENCE_SERVICE=1
+  export VIGILIA_DISABLE_VTO_SNAPSHOT=0
+  export VIGILIA_ENABLE_LOCAL_FOLLOWUP_CAPTURE=0
+  export VIGILIA_PLAY_RESPONSE_LOCALLY=0
   echo "[VIGILIA] inference_service_disabled_for_vto=1"
   "$RUN_VIGILIA_SCRIPT" "$SELECTED_AUDIO_PATH" "$RESPONSE_AUDIO_PATH"
 

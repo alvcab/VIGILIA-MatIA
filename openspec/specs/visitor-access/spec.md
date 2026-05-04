@@ -35,6 +35,14 @@ El sistema DEBE interpretar una solicitud hablada o escrita del visitante para d
 - ENTONCES el sistema pide al visitante que lo intente nuevamente
 - Y el porton permanece cerrado
 
+#### Escenario: Solicitud no orientada a apertura resuelta sin modelo
+
+- DADO que la transcripcion contiene un saludo, una visita informativa o un contexto como paquete o departamento
+- Y la voz no pide explicitamente abrir el porton
+- CUANDO el flujo evalua la solicitud
+- ENTONCES el sistema puede resolver la no-apertura mediante reglas locales
+- Y no depende del token del modelo para responder de forma segura
+
 #### Escenario: Timeout o falla de transcripcion local
 
 - DADO que la captura de voz existe pero la transcripcion local falla o excede su timeout
@@ -76,6 +84,13 @@ El sistema DEBE abrir el porton solo cuando la capa de decision devuelve un toke
 - ENTONCES el sistema rechaza la solicitud
 - Y el porton permanece cerrado
 
+#### Escenario: Token negativo exacto del modelo
+
+- DADO que la respuesta del modelo es exactamente `HOLA` o exactamente `ERROR`
+- CUANDO el flujo de manejo de comandos evalua la respuesta
+- ENTONCES el sistema trata esa respuesta como una no-apertura valida
+- Y el porton permanece cerrado
+
 #### Escenario: Respuesta verbosa o fuera de contrato del modelo
 
 - DADO que la respuesta del modelo incluye texto adicional, eco del prompt o tokens validos dentro de una respuesta mas larga
@@ -114,6 +129,29 @@ El sistema DEBE abrir el porton solo cuando la capa de decision devuelve un toke
 - Y el audio posterior contiene solo un saludo breve sin pedir explicitamente abrir
 - CUANDO el flujo hibrido evalua la llamada
 - ENTONCES el sistema puede abrir el porton como residente conocido
+
+#### Escenario: Apertura inmediata por rostro confiable al presionar el boton del VTO
+
+- DADO que un residente conocido presiona el boton del VTO
+- Y el sistema puede capturar un snapshot antes de iniciar la escucha larga
+- CUANDO el rostro coincide de forma confiable o dentro de una banda extendida acotada para un residente conocido habilitado
+- ENTONCES el sistema abre de inmediato
+- Y termina la llamada sin exigir frase adicional
+
+#### Escenario: Continuacion al flujo de voz cuando no hay match facial confiable
+
+- DADO que entra una llamada del VTO
+- Y la verificacion facial rapida inicial no logra un match confiable habilitado
+- CUANDO la llamada continua
+- ENTONCES el sistema pasa al flujo normal de escucha
+- Y espera que el visitante diga a que residente o departamento viene
+
+#### Escenario: Snapshot rapido prioriza captura HTTP
+
+- DADO que entra una llamada del VTO y el sistema necesita un snapshot rapido para rostro
+- CUANDO el equipo soporta captura JPEG por HTTP autenticado
+- ENTONCES el sistema puede intentar primero ese snapshot HTTP
+- Y si falla, continua con captura RTSP sin abortar la llamada
 
 #### Escenario: Reintento facial ante una solicitud clara de apertura
 
@@ -184,8 +222,8 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 
 - DADO que el visitante presiona el boton del citofono
 - CUANDO Asterisk contesta la llamada entrante del VTO
-- ENTONCES el sistema reproduce un saludo inicial corto
-- Y solo despues comienza a esperar y grabar la respuesta del visitante
+- ENTONCES el sistema puede reproducir un saludo inicial corto cuando el canal de audio de retorno es util
+- Y si el VTO no reproduce ese retorno de forma confiable, puede omitirlo para escuchar antes al visitante
 
 #### Escenario: Captura preferente de voz por RTSP del VTO
 
@@ -193,6 +231,13 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - CUANDO el flujo Asterisk deriva la llamada al procesamiento de VIGILIA
 - ENTONCES el sistema prefiere capturar un clip de voz desde RTSP del VTO
 - Y usa el audio SIP grabado solo como fallback si la captura RTSP falla o queda vacia
+
+#### Escenario: Captura inmediata de voz en el flujo real del VTO
+
+- DADO que el VTO real no reproduce de forma confiable el audio entrante desde Asterisk
+- CUANDO el sistema atiende una llamada real del VTO
+- ENTONCES el flujo puede omitir el saludo y tono del PBX antes de grabar
+- Y prioriza una ventana de escucha mas inmediata y mas larga para captar la voz del visitante
 
 #### Escenario: Refuerzo de audio bajo antes de transcribir
 
@@ -212,6 +257,30 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - CUANDO el flujo de decision termina
 - ENTONCES el visitante recibe un mensaje indicando rechazo o falla temporal
 
+#### Escenario: Respuesta hablada generada por IA para una visita no autorizada
+
+- DADO que el sistema ya decidio no abrir el porton
+- Y existe una transcripcion util del visitante
+- CUANDO el flujo genera la respuesta hablada
+- ENTONCES el sistema puede usar un modelo local para redactar una frase breve en espanol
+- Y esa respuesta no altera la decision de apertura
+
+#### Escenario: Repartidor o paquete sin autorizacion de apertura
+
+- DADO que el visitante indica que viene a dejar un paquete o encargo
+- Y el sistema no ha decidido abrir el porton
+- CUANDO genera la respuesta hablada al visitante
+- ENTONCES la respuesta puede orientar a dejar el paquete en conserjeria
+- Y el porton permanece cerrado
+
+#### Escenario: Fallback de respuesta hablada cuando la IA falla
+
+- DADO que el sistema ya decidio abrir o no abrir
+- Y la generacion de respuesta hablada por IA falla, excede su timeout o devuelve una salida invalida
+- CUANDO el flujo necesita hablarle al visitante
+- ENTONCES el sistema usa una respuesta fija de respaldo
+- Y mantiene la misma decision de acceso ya tomada
+
 #### Escenario: Reproduccion local de la respuesta en el host
 
 - DADO que el flujo se ejecuta en un host local con reproduccion local habilitada
@@ -219,6 +288,14 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - CUANDO termina de construir el WAV de salida
 - ENTONCES el sistema reproduce esa respuesta por los parlantes del host
 - Y mantiene el archivo listo para reutilizacion por Asterisk
+
+#### Escenario: Segundo turno local para aclarar residente o departamento
+
+- DADO que el flujo corre localmente en el host
+- Y el visitante entrega un saludo o una visita ambigua sin pedir apertura
+- CUANDO el sistema necesita aclarar a que residente o departamento viene
+- ENTONCES puede emitir una pregunta corta al visitante
+- Y volver a capturar una segunda respuesta antes de cerrar la interaccion
 
 #### Escenario: Falla la sintesis de voz
 
