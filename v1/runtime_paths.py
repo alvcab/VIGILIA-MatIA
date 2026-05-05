@@ -33,6 +33,9 @@ DEFAULT_AUDIO_PATH = Path(
 DEFAULT_RESPONSE_AUDIO_PATH = Path(
     os.environ.get("VIGILIA_DEFAULT_RESPONSE_AUDIO_PATH", AUDIO_DIR / "ia_dice.wav")
 )
+RETRY_AUDIO_PATH = Path(
+    os.environ.get("VIGILIA_RETRY_AUDIO_PATH", AUDIO_DIR / "vigilia_retry.wav")
+)
 PROMPT_AUDIO_BASE = Path(
     os.environ.get("VIGILIA_PROMPT_AUDIO_BASE", AUDIO_DIR / "vigilia_prompt")
 )

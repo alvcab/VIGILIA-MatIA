@@ -34,6 +34,7 @@ try:
         DEFAULT_RESPONSE_AUDIO_PATH as RUNTIME_DEFAULT_RESPONSE_AUDIO_PATH,
         FACE_SERVICE_SOCKET_PATH as RUNTIME_FACE_SERVICE_SOCKET_PATH,
         INFERENCE_SOCKET_PATH as RUNTIME_INFERENCE_SOCKET_PATH,
+        RETRY_AUDIO_PATH as RUNTIME_RETRY_AUDIO_PATH,
         ensure_runtime_directories,
     )
 except ModuleNotFoundError:
@@ -41,6 +42,7 @@ except ModuleNotFoundError:
         DEFAULT_RESPONSE_AUDIO_PATH as RUNTIME_DEFAULT_RESPONSE_AUDIO_PATH,
         FACE_SERVICE_SOCKET_PATH as RUNTIME_FACE_SERVICE_SOCKET_PATH,
         INFERENCE_SOCKET_PATH as RUNTIME_INFERENCE_SOCKET_PATH,
+        RETRY_AUDIO_PATH as RUNTIME_RETRY_AUDIO_PATH,
         ensure_runtime_directories,
     )
 
@@ -55,6 +57,9 @@ FACE_RECOGNIZER_SCRIPT = Path(__file__).with_name("reconocer_rostro.py")
 FACE_SERVICE_SOCKET_PATH = RUNTIME_FACE_SERVICE_SOCKET_PATH
 INFERENCE_SOCKET_PATH = RUNTIME_INFERENCE_SOCKET_PATH
 DEFAULT_RESPONSE_AUDIO_PATH = RUNTIME_DEFAULT_RESPONSE_AUDIO_PATH
+RETRY_AUDIO_PATH = RUNTIME_RETRY_AUDIO_PATH
+SPEAK_ON_IMAC_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "speak_on_imac.py"
+UNHEARD_RETRY_MESSAGE = "No pude escucharte bien. Por favor, pulsa el botón de nuevo."
 DECISION_MODEL_NAME = os.environ.get("VIGILIA_DECISION_MODEL", "vigilia-mini")
 SPOKEN_RESPONSE_MODEL_NAME = os.environ.get(
     "VIGILIA_SPOKEN_RESPONSE_MODEL",
@@ -73,6 +78,10 @@ DISABLE_LOCAL_TRANSCRIPTION_FALLBACK = os.environ.get(
 ).strip().lower() in {"1", "true", "yes", "on"}
 SILENT_AUDIO_SHORT_CIRCUIT_DB = os.environ.get(
     "VIGILIA_SILENT_AUDIO_SHORT_CIRCUIT_DB",
+    "",
+).strip()
+AUDIO_SIZE_SHORT_CIRCUIT_BYTES = os.environ.get(
+    "VIGILIA_AUDIO_SIZE_SHORT_CIRCUIT_BYTES",
     "",
 ).strip()
 AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS = int(os.environ.get("VIGILIA_AUDIO_TRANSCRIPTION_TIMEOUT_SECONDS", "12"))
@@ -291,6 +300,15 @@ def play_local_response_audio(response_audio_path):
         print(f"[TTS] local_playback error={exc}")
 
 
+def play_prebuilt_retry_audio():
+    if not LOCAL_RESPONSE_PLAYBACK_ENABLED:
+        return False
+    if not RETRY_AUDIO_PATH.exists():
+        return False
+    play_local_response_audio(RETRY_AUDIO_PATH)
+    return True
+
+
 def start_direct_local_tts(texto):
     if not LOCAL_RESPONSE_PLAYBACK_ENABLED or not PREFER_DIRECT_LOCAL_TTS:
         return False
@@ -315,17 +333,15 @@ def decir(texto, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     started_at = time.perf_counter()
     print(f"IA dice: {texto}")
 
+    if texto == UNHEARD_RETRY_MESSAGE and play_prebuilt_retry_audio():
+        print(f"[TIMING] tts_seconds={time.perf_counter() - started_at:.3f}")
+        return
+
     if SKIP_RESPONSE_AUDIO_RENDER and LOCAL_RESPONSE_PLAYBACK_ENABLED:
-        try:
-            subprocess.Popen(
-                ["say", "-v", "Monica", texto],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+        if start_direct_local_tts(texto):
             print(f"[TIMING] tts_seconds={time.perf_counter() - started_at:.3f}")
             return
-        except Exception as exc:
-            print(f"[TTS] fast_local_tts error={exc}")
+        print("[TTS] fast_local_tts_failed")
 
     direct_local_tts_started = start_direct_local_tts(texto)
     response_audio_path = Path(response_audio_path)
@@ -1674,6 +1690,76 @@ def procesar_audio(ruta_audio, response_audio_path=DEFAULT_RESPONSE_AUDIO_PATH):
     transcription_error = None
     face_result = None
     face_error = None
+
+    audio_size_short_circuit_bytes = None
+    if AUDIO_SIZE_SHORT_CIRCUIT_BYTES:
+        try:
+            audio_size_short_circuit_bytes = int(AUDIO_SIZE_SHORT_CIRCUIT_BYTES)
+        except ValueError:
+            print(f"[AUDIO] invalid_audio_size_short_circuit_bytes={AUDIO_SIZE_SHORT_CIRCUIT_BYTES}")
+
+    if audio_size_short_circuit_bytes is not None:
+        try:
+            audio_size_bytes = Path(ruta_audio).stat().st_size
+        except Exception as exc:
+            print(f"[AUDIO] audio_size_short_circuit_failed error={exc}")
+            audio_size_bytes = None
+
+        if audio_size_bytes is not None:
+            print(f"[AUDIO] audio_size_bytes={audio_size_bytes}")
+            if audio_size_bytes <= audio_size_short_circuit_bytes:
+                print(
+                    "[AUDIO] audio_size_short_circuit "
+                    f"threshold_bytes={audio_size_short_circuit_bytes}"
+                )
+                result = {"text": ""}
+                print(f"[TIMING] pre_decision_seconds={time.perf_counter() - started_at:.3f}")
+                texto_vecino = ""
+                resident_context = resolve_claimed_resident_context(texto_vecino)
+                pre_model_decision = resolve_access_decision(
+                    visitor_text=texto_vecino,
+                    face_result=face_result,
+                    model_response=None,
+                    resident_context=resident_context,
+                )
+
+                gate_opened = False
+                if pre_model_decision["should_open"]:
+                    print(
+                        "[DECISION] "
+                        f"source={pre_model_decision['source']} "
+                        f"reason={pre_model_decision['reason']} "
+                        f"should_open={pre_model_decision['should_open']} "
+                        "stage=empty_transcript"
+                    )
+                    gate_opened = ejecutar_porton(response_audio_path=response_audio_path)
+                else:
+                    decir(
+                        UNHEARD_RETRY_MESSAGE,
+                        response_audio_path=response_audio_path,
+                    )
+                insert_access_event(
+                    created_at=created_at,
+                    audio_path=ruta_audio,
+                    transcript=texto_vecino,
+                    model_response=None,
+                    gate_opened=gate_opened,
+                    snapshot_path=snapshot_path,
+                    error_message=combine_errors(snapshot_error, face_error, transcription_error),
+                    face_match_name=face_result.get("matched_person_name") if face_result else None,
+                    face_match_confidence=face_confidence(face_result),
+                    face_observation_id=face_result.get("observation_id") if face_result else None,
+                    decision_source=(
+                        pre_model_decision["source"] if pre_model_decision["should_open"] else "speech_capture"
+                    ),
+                    decision_reason=(
+                        pre_model_decision["reason"] if pre_model_decision["should_open"] else "empty_transcript"
+                    ),
+                    claimed_resident_name=resident_context["claimed_resident_name"],
+                    claimed_unit=resident_context["claimed_unit"],
+                    resolved_resident_id=resident_context["resolved_resident_id"],
+                )
+                return
 
     short_circuit_threshold = None
     if SILENT_AUDIO_SHORT_CIRCUIT_DB:

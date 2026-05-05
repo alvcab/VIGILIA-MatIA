@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 
 
-TMP_DIR = Path("/tmp")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+TMP_DIR = PROJECT_ROOT / ".runtime" / "audio"
 RTSP_PATTERN = "vigilia_in_*_rtsp.wav"
 
 
@@ -89,7 +90,7 @@ def main():
     latest = find_latest_rtsp_audio()
 
     if latest is None:
-        print("No encontre audios RTSP en /tmp.")
+        print(f"No encontre audios RTSP en {TMP_DIR}.")
         sys.exit(1)
 
     print(f"path: {latest}")
