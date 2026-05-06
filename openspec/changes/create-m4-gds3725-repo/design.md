@@ -25,7 +25,7 @@ El nuevo repo no asume Asterisk como base obligatoria. Puede agregarse despues c
 - `services/transcription/`: interfaz de transcripcion
 - `services/access_control/`: simulacion segura de apertura
 - `services/tts/`: respuestas cortas reutilizables
-- `services/telephony/`: espacio reservado para SIP / audio session handling
+- `services/telephony/`: contratos de SIP / audio session handling
 
 ## Execution Modes
 
@@ -39,3 +39,26 @@ El nuevo repo no asume Asterisk como base obligatoria. Puede agregarse despues c
 - nada del scaffold inicial debe abrir el porton real
 - el acceso inicial debe operar solo en `dry-run`
 - la configuracion debe vivir en archivos ejemplo o variables de entorno
+
+## First No-Asterisk Interface
+
+Como primer paso concreto sin Asterisk, el scaffold agrega:
+
+- configuracion SIP del dispositivo / cuenta destino
+- sesion de intercom con referencia a archivo de audio
+- adaptador de ingesta desde WAV para pruebas locales
+- planificador de endpoint SIP y URIs para el `GDS3725`
+- contrato de transporte SIP con lifecycle de llamada
+- adaptador de transporte pensado para `baresip` como proceso externo
+
+Esto no reemplaza aun una pila SIP completa, pero define el contrato de integracion real que luego podra conectarse al `GDS3725`.
+
+## Baresip Runtime Scaffold
+
+El scaffold agrega:
+
+- generacion de `config` y `accounts`
+- layout de runtime para `baresip`
+- script de arranque local
+
+Esto permite preparar el `Mac mini` para la siguiente etapa sin requerir todavia llamada SIP real en esta fase.

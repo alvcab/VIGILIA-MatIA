@@ -15,3 +15,19 @@ tts:
 
 access_control:
   dry_run: true
+
+sip:
+  device_label: gds3725
+  local_user: vigilia
+  local_domain: 192.168.100.10
+  local_port: 5060
+  local_transport: udp
+  device_user: door
+  device_domain: 192.168.100.20
+  device_port: 5060
+
+baresip:
+  binary: baresip
+  config_path: runtime/baresip/config
+  accounts_path: runtime/baresip/accounts
+  audio_path: runtime/baresip/audio

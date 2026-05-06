@@ -9,6 +9,9 @@ class IntercomSession:
     session_id: str
     caller_id: str
     transcript: str
+    audio_source_path: str = ""
+    transport: str = "simulated"
+    device_label: str = "unknown"
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
     )

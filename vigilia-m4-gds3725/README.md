@@ -25,6 +25,10 @@ Recibir audio desde el intercom, transcribirlo, tomar una decision y responder d
 - `decision-only`: evalua policy desde texto
 - `dry-run`: simula flujo y apertura
 - `session-replay`: simula una sesion de intercom sin Asterisk
+- `audio-file`: simula una sesion de audio real desde un WAV local
+- `sip-preview`: muestra el contrato SIP esperado para conectar el `GDS3725`
+- `sip-session`: simula el lifecycle SIP de una llamada sin Asterisk
+- `baresip-preview`: muestra como quedaria la integracion recomendada con `baresip`
 
 ## Estructura
 
@@ -49,7 +53,30 @@ python3 -m app.main --mode dry-run --text "abre por favor"
 python3 -m app.main --mode session-replay --caller-id "gds-front-door" --text "hola"
 ```
 
+```bash
+python3 -m app.main --mode audio-file --caller-id "gds-front-door" --audio-file runtime/sample.wav
+```
+
+```bash
+python3 -m app.main --mode sip-preview --caller-id "gds-front-door"
+```
+
+```bash
+python3 -m app.main --mode sip-session --caller-id "gds-front-door"
+```
+
+```bash
+python3 -m app.main --mode baresip-preview --caller-id "gds-front-door"
+```
+
+```bash
+./scripts/prepare_baresip_runtime.sh
+./scripts/run_baresip_local.sh
+```
+
 ## Estado
 
 Este scaffold no abre portones reales.
-La integracion SIP/audio real del `GDS3725` queda para la siguiente etapa, pero ya existe una simulacion de sesion local para probar el flujo sin Asterisk.
+La pila SIP real del `GDS3725` todavia no esta conectada, pero el contrato de sesion/audio sin Asterisk ya queda definido y se puede probar desde WAV local.
+
+`baresip` todavia no es obligatorio para validar el scaffold, pero el repo ya deja listos los archivos `config` y `accounts` para la siguiente etapa.

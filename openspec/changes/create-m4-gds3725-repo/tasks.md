@@ -14,3 +14,12 @@
 
 - [x] Agregar tests minimos para la policy inicial
 - [x] Verificar que el scaffold corra en modo `decision-only`
+
+## 4. No-Asterisk Interface
+
+- [x] Agregar contratos iniciales de SIP/audio sin Asterisk
+- [x] Agregar una ingesta local desde WAV para simular sesiones reales
+- [x] Agregar un preview de endpoint SIP para planificar la integracion real con `GDS3725`
+- [x] Agregar un contrato de transporte SIP y una implementacion fake para pruebas
+- [x] Agregar un adaptador inicial de `baresip` para la ruta recomendada sin Asterisk
+- [x] Agregar scaffold de runtime y scripts de `baresip`

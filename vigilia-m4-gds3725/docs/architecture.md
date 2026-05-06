@@ -15,6 +15,7 @@ Flujo objetivo:
 - recibe la sesion de intercom
 - delimita la ventana de audio
 - entrega audio limpio a la siguiente capa
+- encapsula caller id, metadata SIP y referencia al audio capturado
 
 ### Transcription
 
@@ -60,3 +61,28 @@ La primera integracion esperada es:
 - servicios de decision y TTS desacoplados
 
 Mientras llega la integracion real, `session-replay` permite validar el contrato interno de una sesion sin depender de Asterisk.
+
+El siguiente escalon es `audio-file`, que valida el contrato de audio real usando WAV local como sustituto del stream del `GDS3725`.
+
+El escalon siguiente es `sip-preview`, que define:
+
+- URI local de VIGILIA
+- URI esperada del `GDS3725`
+- puerto, transporte y metadata de endpoint
+
+asi el equipo puede configurarse sin introducir todavia una PBX intermedia.
+
+Luego `sip-session` valida el lifecycle esperado de una llamada:
+
+- register
+- invite
+- accept
+- hangup
+
+sin requerir aun una libreria SIP real.
+
+La ruta recomendada actual es:
+
+`GDS3725 -> baresip -> VIGILIA`
+
+donde `baresip` actua como user agent / transporte SIP ligero, y VIGILIA conserva la logica de decision, transcripcion y control.

@@ -13,9 +13,16 @@ class TranscriptionResult:
 
 class TranscriptionService:
     def transcribe_file(self, path: str | Path) -> TranscriptionResult:
-        source_path = str(Path(path))
+        source = Path(path)
+        source_path = str(source)
+        sidecar_text_path = source.with_suffix(".txt")
+        transcript_text = ""
+
+        if sidecar_text_path.exists():
+            transcript_text = sidecar_text_path.read_text(encoding="utf-8").strip()
+
         return TranscriptionResult(
-            text="",
+            text=transcript_text,
             source_path=source_path,
-            backend="not_implemented_yet",
+            backend="sidecar_text_stub",
         )

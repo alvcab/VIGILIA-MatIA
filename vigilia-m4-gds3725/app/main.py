@@ -7,8 +7,10 @@ from dataclasses import asdict
 from app.config import load_config
 from services.access_control.dry_run import DryRunGate
 from services.decision.policy import decide_from_text
+from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.call_router import CallRouter
 from services.telephony.in_memory import InMemorySessionFactory
+from services.telephony.sip_adapter import SipAdapter
 from services.tts.canned_audio import build_spoken_response
 
 
@@ -16,11 +18,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="VIGILIA M4 GDS3725 scaffold")
     parser.add_argument(
         "--mode",
-        choices=["decision-only", "dry-run", "session-replay"],
+        choices=[
+            "decision-only",
+            "dry-run",
+            "session-replay",
+            "audio-file",
+            "sip-preview",
+            "sip-session",
+            "baresip-preview",
+        ],
         default=None,
     )
     parser.add_argument("--text", default="", help="Input text for the policy layer")
     parser.add_argument("--caller-id", default="test-intercom", help="Simulated caller id")
+    parser.add_argument("--audio-file", default="", help="Local WAV file for audio-file mode")
     return parser
 
 
@@ -39,6 +50,29 @@ def main() -> int:
         )
         routed = CallRouter().route(session)
         print(json.dumps(routed, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "audio-file":
+        routed = AudioFileFlow().run(
+            caller_id=args.caller_id,
+            audio_file=args.audio_file,
+        )
+        print(json.dumps(routed, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "sip-preview":
+        preview = SipAdapter().build_preview(args.caller_id)
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "sip-session":
+        preview = SipAdapter().simulate_session(args.caller_id)
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "baresip-preview":
+        preview = SipAdapter().build_baresip_preview(args.caller_id)
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 
     output = {
