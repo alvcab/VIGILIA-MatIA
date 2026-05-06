@@ -10,6 +10,7 @@ from services.decision.conversation_store import ConversationStore
 from services.decision.hybrid import evaluate_hybrid_decision
 from services.decision.policy import decide_from_text
 from services.decision.resident_directory import ResidentDirectory
+from services.telephony.baresip_pipeline import BaresipPipeline
 from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.call_router import CallRouter
 from services.telephony.in_memory import InMemorySessionFactory
@@ -31,6 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
             "baresip-preview",
             "hybrid-decision",
             "conversation-turn",
+            "baresip-inbox",
+            "baresip-watch-once",
         ],
         default=None,
     )
@@ -107,6 +110,35 @@ def main() -> int:
 
     if mode == "baresip-preview":
         preview = SipAdapter().build_baresip_preview(args.caller_id)
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "baresip-inbox":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        if args.audio_file:
+            preview = pipeline.process_audio_file(args.audio_file, args.caller_id)
+        else:
+            preview = pipeline.process_latest()
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "baresip-watch-once":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        preview = pipeline.process_new_files_once()
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 

@@ -29,3 +29,5 @@
 - [x] Agregar un contrato de transporte SIP y una implementacion fake para pruebas
 - [x] Agregar un adaptador inicial de `baresip` para la ruta recomendada sin Asterisk
 - [x] Agregar scaffold de runtime y scripts de `baresip`
+- [x] Agregar inbox de `baresip` para procesar llamadas externas en el pipeline de IA
+- [x] Agregar watcher de una pasada para procesar el inbox de `baresip`

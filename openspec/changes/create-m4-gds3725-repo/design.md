@@ -107,3 +107,19 @@ El scaffold agrega:
 - script de arranque local
 
 Esto permite preparar el `Mac mini` para la siguiente etapa sin requerir todavia llamada SIP real en esta fase.
+
+## Baresip Inbox Integration
+
+Para conectar `baresip` con VIGILIA sin PBX:
+
+- `baresip` deja audio y metadata en un inbox de runtime
+- VIGILIA consume ese inbox
+- el mismo pipeline de transcripcion, decision y modelo procesa la llamada
+
+## Baresip Watcher
+
+El scaffold agrega un watcher no bloqueante:
+
+- procesa WAVs nuevos del inbox
+- guarda resultados en `runtime/baresip/processed`
+- evita reprocesar archivos ya resueltos

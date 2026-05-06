@@ -56,6 +56,21 @@
 3. preparar carpeta de audio
 4. ejecutar `baresip -f runtime/baresip/config`
 
+## baresip-inbox
+
+1. `baresip` deja WAV y metadata en `runtime/baresip/inbox`
+2. VIGILIA toma el audio
+3. corre transcripcion, decision y modelo
+4. devuelve accion `dry-run` y respuesta hablada
+
+## baresip-watch-once
+
+1. escanear `runtime/baresip/inbox`
+2. ignorar audios ya procesados
+3. procesar cada WAV nuevo
+4. guardar salida JSON en `runtime/baresip/processed`
+5. respetar el contrato definido para `nombre.wav`, `nombre.txt` y `nombre.json`
+
 ## hybrid-decision
 
 1. evaluar reglas deterministicas

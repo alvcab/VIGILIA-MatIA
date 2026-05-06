@@ -127,6 +127,16 @@ VIGILIA_OLLAMA_TIMEOUT_SECONDS=8
 ./scripts/run_baresip_local.sh
 ```
 
+```bash
+python3 -m app.main --mode baresip-inbox --audio-file runtime/baresip/inbox/demo.wav --caller-id gds-front-door
+```
+
+```bash
+python3 -m app.main --mode baresip-watch-once
+```
+
+El contrato esperado del inbox esta descrito en [docs/baresip-inbox-contract.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/baresip-inbox-contract.md:1).
+
 ## Estado
 
 Este scaffold no abre portones reales.
