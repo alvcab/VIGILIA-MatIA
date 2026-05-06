@@ -1,0 +1,17 @@
+app:
+  environment: development
+  runtime_dir: runtime
+  log_level: INFO
+
+modes:
+  default: dry-run
+
+tts:
+  enabled: true
+  canned:
+    hello: "Hola."
+    retry: "No pude escucharte bien."
+    opening: "Abriendo."
+
+access_control:
+  dry_run: true

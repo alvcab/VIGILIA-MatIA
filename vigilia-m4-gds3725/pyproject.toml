@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vigilia-m4-gds3725"
+version = "0.1.0"
+description = "Scaffold for the next VIGILIA stack targeting Mac mini M4 and GDS3725"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
