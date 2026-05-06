@@ -1,0 +1,21 @@
+residents:
+  - id: alvaro
+    display_name: Alvaro
+    unit: Casa 1
+    allows_voice_open: false
+    accepts_delivery: true
+    requires_resident_confirmation: true
+    aliases:
+      - alvaro
+      - alvaro c
+      - alvaro cornejo
+      - casa 1
+  - id: conserjeria
+    display_name: Conserjeria
+    unit: Acceso
+    allows_voice_open: false
+    accepts_delivery: false
+    requires_resident_confirmation: false
+    aliases:
+      - conserjeria
+      - conserje

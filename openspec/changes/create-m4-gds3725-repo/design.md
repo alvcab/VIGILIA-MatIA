@@ -21,7 +21,7 @@ El nuevo repo no asume Asterisk como base obligatoria. Puede agregarse despues c
 ## Initial Components
 
 - `app/`: entrypoint y paths de runtime
-- `services/decision/`: policy minima para pruebas de IA
+- `services/decision/`: policy inicial en espanol para pruebas de IA
 - `services/transcription/`: interfaz de transcripcion
 - `services/access_control/`: simulacion segura de apertura
 - `services/tts/`: respuestas cortas reutilizables
@@ -33,6 +33,51 @@ El nuevo repo no asume Asterisk como base obligatoria. Puede agregarse despues c
 - `dry-run`: simula decision y apertura sin tocar hardware
 - `audio-only`: reservado para pruebas futuras con audio real
 - `full-flow`: reservado para la integracion futura
+
+## Initial IA Policy Scope
+
+La primera policy del scaffold debe ser suficiente para distinguir casos basicos de intercom:
+
+- saludo simple
+- pedido explicito de apertura
+- visita con residente mencionado
+- delivery o paquete
+- audio o texto insuficiente
+
+## Authorization And Follow-Up
+
+La policy debe poder apoyarse en reglas de residentes y preparar un segundo turno:
+
+- reglas por residente para apertura o confirmacion
+- siguiente paso sugerido para la conversacion
+- contexto estructurado para una futura capa de prompts/modelo
+
+## Session Conversation History
+
+El scaffold agrega un historial de conversacion por sesion:
+
+- almacenamiento simple en `runtime`
+- seguimiento de turnos
+- continuidad de contexto entre mensajes de una misma interaccion
+
+## End-To-End Audio Evaluation
+
+La prueba `audio-file` debe poder recorrer:
+
+- ingesta de audio
+- transcripcion
+- policy deterministica
+- capa hibrida de modelo
+
+para validar el comportamiento de IA sin requerir todavia una sesion SIP real.
+
+## Transcription Backends
+
+La capa de transcripcion debe soportar:
+
+- `sidecar` para pruebas reproducibles basadas en texto controlado
+- `whisper-local` para pruebas locales mas realistas
+- fallback seguro a transcript vacio si el backend real no esta disponible
 
 ## Safety
 

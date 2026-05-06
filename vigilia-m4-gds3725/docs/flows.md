@@ -56,6 +56,21 @@
 3. preparar carpeta de audio
 4. ejecutar `baresip -f runtime/baresip/config`
 
+## hybrid-decision
+
+1. evaluar reglas deterministicas
+2. producir una decision base
+3. si hay seguimiento pendiente, exponer `model_guidance`
+4. dejar lista la costura para una futura capa de modelo
+5. generar una respuesta simulada con backend local stub
+
+## conversation-turn
+
+1. cargar o crear una sesion por `session_id`
+2. registrar el turno actual en `runtime/conversations`
+3. evaluar la policy
+4. devolver estado de conversacion y siguiente paso
+
 ## audio-only
 
 Reservado para la futura integracion de audio del `GDS3725`.

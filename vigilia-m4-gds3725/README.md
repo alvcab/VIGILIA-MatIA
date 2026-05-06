@@ -29,6 +29,8 @@ Recibir audio desde el intercom, transcribirlo, tomar una decision y responder d
 - `sip-preview`: muestra el contrato SIP esperado para conectar el `GDS3725`
 - `sip-session`: simula el lifecycle SIP de una llamada sin Asterisk
 - `baresip-preview`: muestra como quedaria la integracion recomendada con `baresip`
+- `hybrid-decision`: combina reglas y guia lista para una futura capa de modelo
+- `conversation-turn`: prueba continuidad de sesion y segundo turno
 
 ## Estructura
 
@@ -57,6 +59,26 @@ python3 -m app.main --mode session-replay --caller-id "gds-front-door" --text "h
 python3 -m app.main --mode audio-file --caller-id "gds-front-door" --audio-file runtime/sample.wav
 ```
 
+Ese modo ahora evalua:
+
+- transcripcion
+- decision
+- guia de modelo
+- accion `dry-run`
+
+La transcripcion se controla con:
+
+```bash
+VIGILIA_TRANSCRIPTION_BACKEND=sidecar
+```
+
+o:
+
+```bash
+VIGILIA_TRANSCRIPTION_BACKEND=whisper-local
+VIGILIA_WHISPER_MODEL=tiny
+```
+
 ```bash
 python3 -m app.main --mode sip-preview --caller-id "gds-front-door"
 ```
@@ -67,6 +89,37 @@ python3 -m app.main --mode sip-session --caller-id "gds-front-door"
 
 ```bash
 python3 -m app.main --mode baresip-preview --caller-id "gds-front-door"
+```
+
+```bash
+python3 -m app.main --mode hybrid-decision --text "abre por favor donde Alvaro"
+```
+
+Ese modo ya entrega una respuesta generada por un backend de modelo simulado, sin depender aun de un LLM real.
+
+```bash
+python3 -m app.main --mode conversation-turn --session-id demo-1 --text "hola"
+python3 -m app.main --mode conversation-turn --session-id demo-1 --text "vengo donde Alvaro"
+```
+
+El backend se controla con:
+
+```bash
+VIGILIA_MODEL_BACKEND=stub
+```
+
+o:
+
+```bash
+VIGILIA_MODEL_BACKEND=echo
+```
+
+O con Ollama local:
+
+```bash
+VIGILIA_MODEL_BACKEND=ollama
+VIGILIA_OLLAMA_MODEL=vigilia-mini
+VIGILIA_OLLAMA_TIMEOUT_SECONDS=8
 ```
 
 ```bash

@@ -14,6 +14,12 @@
 
 - [x] Agregar tests minimos para la policy inicial
 - [x] Verificar que el scaffold corra en modo `decision-only`
+- [x] Ampliar la policy inicial para casos basicos de intercom en espanol
+- [x] Agregar reglas de autorizacion por residente
+- [x] Preparar contexto de segundo turno y capa base de prompts
+- [x] Agregar historial de conversacion por sesion
+- [x] Conectar `audio-file` a la capa hibrida end-to-end
+- [x] Agregar backends configurables de transcripcion
 
 ## 4. No-Asterisk Interface
 

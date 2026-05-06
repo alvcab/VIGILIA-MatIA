@@ -5,7 +5,7 @@ from services.telephony.in_memory import InMemorySessionFactory
 
 
 class CallRouterTests(unittest.TestCase):
-    def test_session_replay_open_request_routes_to_dry_run_open(self) -> None:
+    def test_session_replay_open_request_requires_authorization(self) -> None:
         session = InMemorySessionFactory().create(
             caller_id="gds-front-door",
             transcript="abre por favor",
@@ -14,6 +14,17 @@ class CallRouterTests(unittest.TestCase):
         result = CallRouter().route(session)
 
         self.assertEqual(result["mode"], "session-replay")
+        self.assertEqual(result["decision"]["action"], "clarify_authorization")
+        self.assertFalse(result["gate_action"]["would_open"])
+
+    def test_session_replay_authorized_open_routes_to_dry_run_open(self) -> None:
+        session = InMemorySessionFactory().create(
+            caller_id="gds-front-door",
+            transcript="abre por favor, me estan esperando",
+        )
+
+        result = CallRouter().route(session)
+
         self.assertEqual(result["decision"]["action"], "open")
         self.assertTrue(result["gate_action"]["would_open"])
 
