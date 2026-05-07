@@ -180,6 +180,7 @@ Con eso `MatIA` sabe:
 - que decir
 - con que perfil de voz decirlo
 - y a que URI SIP del departamento deberia llamar `baresip`
+- y como deberia arrancar `baresip` y pasarle la secuencia `dial/hangup/quit`
 
 ## Estado
 

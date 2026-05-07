@@ -214,6 +214,8 @@ Ese preview le dice a `MatIA`:
 - desde que URI local saldria la llamada
 - a que URI SIP del departamento deberia llamar
 - como se veria el `invite` inicial por `baresip`
+- como levantar el proceso de `baresip`
+- que secuencia de `stdin` usar para `dial`, `hangup` y `quit`
 
 Asi `MatIA` no improvisa la llamada al departamento y no mezcla policy con TTS.
 

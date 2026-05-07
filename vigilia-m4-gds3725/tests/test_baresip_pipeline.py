@@ -285,6 +285,18 @@ class BaresipPipelineTests(unittest.TestCase):
             result["department_authorization_request"]["baresip_outgoing_call_preview"]["target_uri"],
             "sip:depto1@192.168.100.71:5060;transport=udp",
         )
+        self.assertEqual(
+            result["department_authorization_request"]["baresip_outgoing_call_preview"]["baresip_execution_preview"][
+                "startup_command"
+            ],
+            ["baresip", "-f", str(workdir / "config")],
+        )
+        self.assertEqual(
+            result["department_authorization_request"]["baresip_outgoing_call_preview"]["baresip_execution_preview"][
+                "dial_command"
+            ],
+            "/dial sip:depto1@192.168.100.71:5060;transport=udp",
+        )
 
     def test_process_department_responses_once_consumes_response_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

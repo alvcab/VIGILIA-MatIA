@@ -1,6 +1,7 @@
 import unittest
 
 from services.decision.resident_directory import ResidentDirectory
+from services.telephony.baresip_config import BaresipConfig
 from services.telephony.department_call_service import DepartmentCallService
 from services.telephony.sip_config import SipEndpointConfig
 
@@ -18,6 +19,13 @@ class DepartmentCallServiceTests(unittest.TestCase):
                 local_domain="192.168.100.50",
                 local_port=5062,
                 transport="udp",
+            ),
+            baresip_config=BaresipConfig(
+                binary="baresip",
+                config_path="runtime/baresip/config",
+                accounts_path="runtime/baresip/accounts",
+                audio_path="runtime/baresip/audio",
+                workdir="runtime/baresip",
             ),
         )
         plan = service.build_execution_plan(
@@ -38,6 +46,15 @@ class DepartmentCallServiceTests(unittest.TestCase):
         self.assertEqual(plan["target_uri"], "sip:depto1@192.168.100.71:5060;transport=udp")
         self.assertEqual(plan["local_uri"], "sip:vigilia@192.168.100.50:5062;transport=udp")
         self.assertEqual(plan["invite_preview"]["to_uri"], plan["target_uri"])
+        self.assertEqual(plan["baresip_execution_preview"]["target_uri"], plan["target_uri"])
+        self.assertEqual(
+            plan["baresip_execution_preview"]["startup_command"],
+            ["baresip", "-f", "runtime/baresip/config"],
+        )
+        self.assertEqual(
+            plan["baresip_execution_preview"]["dial_command"],
+            f"/dial {plan['target_uri']}",
+        )
 
 
 if __name__ == "__main__":

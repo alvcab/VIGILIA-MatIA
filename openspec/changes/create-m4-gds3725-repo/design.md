@@ -258,3 +258,13 @@ La siguiente capa del scaffold define tambien un preview concreto de llamada sal
 
 Esto no ejecuta aun la llamada real, pero deja fijado el contrato tecnico para que
 `MatIA` y `baresip` coordinen una llamada al departamento sin reinterpretar la policy.
+
+Ademas del preview del `invite`, el contrato agrega un preview operativo para el
+proceso `baresip`:
+
+- comando de arranque con `-f <config>`
+- comando interactivo `/dial <target_uri>`
+- secuencia esperada de `hangup` y `quit`
+
+Con eso la futura integracion real no parte desde cero y `MatIA` puede delegar la
+llamada saliente sobre una interfaz ya estabilizada.

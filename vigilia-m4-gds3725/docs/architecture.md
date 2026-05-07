@@ -118,5 +118,7 @@ El `baresip_outgoing_call_preview` agrega:
 - URI local de origen
 - URI SIP del departamento
 - preview del `invite`
+- preview de ejecucion interactiva de `baresip`
+- secuencia esperada de `dial`, `hangup` y `quit`
 
 Eso deja definido el contrato para la futura llamada saliente mediada por `baresip`.

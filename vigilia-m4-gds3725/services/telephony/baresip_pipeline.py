@@ -31,7 +31,10 @@ class BaresipPipeline:
         self._conversation_store = ConversationStore(self._baresip_config.workdir)
         self._department_authorization = DepartmentAuthorizationRuntime(self._baresip_config.workdir)
         self._department_service = DepartmentAuthorizationService(self._department_authorization)
-        self._department_call_service = DepartmentCallService(resident_directory)
+        self._department_call_service = DepartmentCallService(
+            resident_directory,
+            baresip_config=self._baresip_config,
+        )
         self._resident_directory = resident_directory
         self._model_backend_name = model_backend_name
         self._ollama_model = ollama_model
