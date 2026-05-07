@@ -79,6 +79,19 @@
 4. guardar salida JSON en `runtime/baresip/department_authorization/processed`
 5. permitir fallback con codigo de visita registrada si corresponde
 
+## department-request-list
+
+1. escanear `runtime/baresip/department_authorization/requests`
+2. ignorar sesiones que ya tengan respuesta o resultado procesado
+3. devolver la cola pendiente para un operador o integrador externo
+
+## department-respond
+
+1. tomar un `session_id` pendiente
+2. escribir una respuesta estructurada `approved`, `denied` o `no_response`
+3. dejar la respuesta en `runtime/baresip/department_authorization/responses`
+4. esperar a que `department-watch-once` la procese con la memoria de sesion
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

@@ -204,3 +204,11 @@ por sesion con `approved`, `denied` o `no_response`.
 
 VIGILIA consume ese evento como una nueva entrada de sesion, sin depender de flags
 manuales del CLI ni de acoplar la policy a una implementacion concreta de llamada SIP.
+
+Para la etapa actual, el scaffold agrega tambien dos operaciones basicas:
+
+- listar solicitudes pendientes
+- emitir una respuesta estructurada por `session_id`
+
+Eso permite usar el flujo con un operador humano, una app futura o un softphone
+sin cambiar la policy de `MatIA`.

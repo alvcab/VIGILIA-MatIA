@@ -32,6 +32,8 @@ Recibir audio desde el intercom, transcribirlo, tomar una decision y responder d
 - `hybrid-decision`: combina reglas y guia lista para una futura capa de modelo
 - `conversation-turn`: prueba continuidad de sesion y segundo turno
 - `department-watch-once`: procesa respuestas de autorizacion de departamento por sesion
+- `department-request-list`: lista solicitudes pendientes de autorizacion de departamento
+- `department-respond`: crea una respuesta estructurada para una sesion
 
 ## Estructura
 
@@ -138,6 +140,11 @@ python3 -m app.main --mode baresip-watch-once
 
 ```bash
 python3 -m app.main --mode department-watch-once
+```
+
+```bash
+python3 -m app.main --mode department-request-list
+python3 -m app.main --mode department-respond --session-id sesion-001 --department-status approved
 ```
 
 El contrato esperado del inbox esta descrito en [docs/baresip-inbox-contract.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/baresip-inbox-contract.md:1).

@@ -37,3 +37,4 @@
 - [x] Agregar flujo de llamada al departamento con resultados `approved`, `denied` y `no_response`
 - [x] Agregar fallback de visita registrada con codigo de 4 digitos cuando el departamento no responde
 - [x] Agregar runtime `requests/responses/processed` para la respuesta del departamento por sesion
+- [x] Agregar operaciones para listar solicitudes pendientes y responder una sesion de departamento

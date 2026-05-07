@@ -11,6 +11,8 @@ from services.decision.hybrid import evaluate_hybrid_decision
 from services.decision.policy import decide_from_text
 from services.decision.resident_directory import ResidentDirectory
 from services.decision.turn_evaluator import TurnEvaluator, TurnInput
+from services.telephony.department_authorization_runtime import DepartmentAuthorizationRuntime
+from services.telephony.department_authorization_service import DepartmentAuthorizationService
 from services.telephony.baresip_pipeline import BaresipPipeline
 from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.call_router import CallRouter
@@ -37,6 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
             "baresip-inbox",
             "baresip-watch-once",
             "department-watch-once",
+            "department-request-list",
+            "department-respond",
         ],
         default=None,
     )
@@ -204,6 +208,36 @@ def main() -> int:
             ollama_timeout_seconds=config.ollama_timeout_seconds,
         )
         preview = pipeline.process_department_responses_once()
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-request-list":
+        service = DepartmentAuthorizationService(
+            DepartmentAuthorizationRuntime(resolve_repo_path(config.runtime_dir) / "baresip")
+        )
+        pending = service.list_pending_requests()
+        print(
+            json.dumps(
+                {
+                    "mode": "department-request-list",
+                    "pending_count": len(pending),
+                    "pending": [asdict(item) for item in pending],
+                },
+                ensure_ascii=True,
+                indent=2,
+            )
+        )
+        return 0
+
+    if mode == "department-respond":
+        service = DepartmentAuthorizationService(
+            DepartmentAuthorizationRuntime(resolve_repo_path(config.runtime_dir) / "baresip")
+        )
+        preview = service.create_response(
+            session_id=args.session_id,
+            status=args.department_status,
+            caller_id=args.caller_id,
+        )
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 

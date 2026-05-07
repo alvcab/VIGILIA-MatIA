@@ -44,6 +44,24 @@ class DepartmentAuthorizationRuntime:
         target.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
         return target
 
+    def load_request(self, session_id: str) -> dict[str, object] | None:
+        target = self.request_path(session_id)
+        if not target.exists():
+            return None
+        return json.loads(target.read_text(encoding="utf-8"))
+
+    def list_pending_requests(self) -> list[dict[str, object]]:
+        pending: list[dict[str, object]] = []
+        for request_path in sorted(self._requests.glob("*.request.json"), key=lambda path: path.stat().st_mtime):
+            session_id = request_path.stem.replace(".request", "")
+            if self.response_path(session_id).exists():
+                continue
+            if self.processed_path(session_id).exists():
+                continue
+            payload = json.loads(request_path.read_text(encoding="utf-8"))
+            pending.append(payload)
+        return pending
+
     def save_response(self, session_id: str, payload: dict[str, object]) -> Path:
         target = self.response_path(session_id)
         target.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
