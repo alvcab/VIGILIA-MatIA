@@ -99,7 +99,7 @@ En ese caso:
 Si el dispositivo intento rostro y no encontro un match confiable:
 
 - `MatIA` debe seguir la conversacion normal
-- pero con una pregunta mas explicita orientada a residente o unidad
+- pero con una pregunta mas explicita orientada a residente o departamento
 - evitando respuestas genericas que ignoren el contexto facial
 
 ## Donde entra el inbox

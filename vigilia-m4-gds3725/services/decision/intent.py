@@ -28,6 +28,13 @@ def extract_resident_hint(text: str) -> str:
     return ""
 
 
+def extract_authorization_code(text: str) -> str:
+    match = re.search(r"\b(\d{4})\b", text)
+    if not match:
+        return ""
+    return match.group(1)
+
+
 @dataclass(frozen=True)
 class IntentExtraction:
     normalized_text: str

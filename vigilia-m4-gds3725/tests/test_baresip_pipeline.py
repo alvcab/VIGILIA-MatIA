@@ -193,3 +193,131 @@ class BaresipPipelineTests(unittest.TestCase):
             result["spoken_response"],
             "Hola. No reconozco tu rostro. A que residente vienes a ver?",
         )
+
+    def test_process_audio_file_can_use_department_authorization_and_registered_visit_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+
+            first_audio = workdir / "inbox" / "visit.wav"
+            second_audio = workdir / "inbox" / "visit-follow-up.wav"
+            first_audio.parent.mkdir(parents=True, exist_ok=True)
+            first_audio.write_bytes(b"RIFFfakeWAVE")
+            second_audio.write_bytes(b"RIFFfakeWAVE")
+            first_audio.with_suffix(".txt").write_text("vengo donde Alvaro", encoding="utf-8")
+            second_audio.with_suffix(".txt").write_text("", encoding="utf-8")
+
+            first = pipeline.process_audio_file(
+                str(first_audio),
+                caller_id="front-door",
+                metadata={
+                    "session_id": "dept-session-1",
+                    "caller_id": "front-door",
+                    "registered_visit": {"code": "1234"},
+                },
+            )
+            second = pipeline.process_audio_file(
+                str(second_audio),
+                caller_id="front-door",
+                metadata={
+                    "session_id": "dept-session-1",
+                    "caller_id": "front-door",
+                    "department_authorization": {"status": "no_response"},
+                },
+            )
+
+        self.assertEqual(first["decision"]["action"], "contact_department")
+        self.assertEqual(second["decision"]["action"], "request_visit_code")
+        self.assertTrue(second["conversation_state"]["memory"]["waiting_for_visit_code"])
+
+    def test_contact_department_creates_request_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+
+            audio_path = workdir / "inbox" / "contact.wav"
+            audio_path.parent.mkdir(parents=True, exist_ok=True)
+            audio_path.write_bytes(b"RIFFfakeWAVE")
+            audio_path.with_suffix(".txt").write_text("vengo donde Alvaro", encoding="utf-8")
+
+            result = pipeline.process_audio_file(
+                str(audio_path),
+                caller_id="front-door",
+                metadata={
+                    "session_id": "dept-request-1",
+                    "caller_id": "front-door",
+                },
+            )
+            self.assertEqual(result["decision"]["action"], "contact_department")
+            self.assertIn("department_authorization_request", result)
+            self.assertTrue(
+                Path(result["department_authorization_request"]["request_path"]).exists()
+            )
+            self.assertEqual(
+                result["department_authorization_request"]["payload"]["department_target"],
+                "Departamento 1",
+            )
+
+    def test_process_department_responses_once_consumes_response_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+
+            first_audio = workdir / "inbox" / "dept-response.wav"
+            first_audio.parent.mkdir(parents=True, exist_ok=True)
+            first_audio.write_bytes(b"RIFFfakeWAVE")
+            first_audio.with_suffix(".txt").write_text("vengo donde Alvaro", encoding="utf-8")
+            pipeline.process_audio_file(
+                str(first_audio),
+                caller_id="front-door",
+                metadata={
+                    "session_id": "dept-response-1",
+                    "caller_id": "front-door",
+                },
+            )
+
+            response_path = workdir / "department_authorization" / "responses" / "dept-response-1.response.json"
+            response_path.parent.mkdir(parents=True, exist_ok=True)
+            response_path.write_text(
+                '{\n'
+                '  "session_id": "dept-response-1",\n'
+                '  "caller_id": "front-door",\n'
+                '  "department_authorization": {"status": "approved"}\n'
+                '}\n',
+                encoding="utf-8",
+            )
+
+            result = pipeline.process_department_responses_once()
+            self.assertEqual(result["mode"], "department-watch-once")
+            self.assertEqual(result["processed_count"], 1)
+            self.assertEqual(result["processed"][0]["decision_action"], "open")

@@ -158,3 +158,49 @@ Si el `GDS3725` entrega un match facial confiable para un residente habilitado:
 
 Esto evita obligar a `MatIA` a continuar un dialogo innecesario cuando el dispositivo
 ya entrego una identidad residente suficientemente confiable.
+
+## Department Authorization Flow
+
+Cuando no exista un rostro confiable y la visita ya identifique a un residente o departamento,
+`MatIA` debe escalar desde la conversacion hacia una autorizacion del departamento.
+
+El flujo se separa en dos etapas:
+
+- `contact_department`: `MatIA` informa a la visita que intentara llamar al departamento
+- respuesta del departamento: VIGILIA recibe un resultado estructurado de autorizacion
+
+Resultados esperados:
+
+- `approved`: abrir el porton
+- `denied`: rechazar con un mensaje breve
+- `no_response`: informar que no hubo respuesta del departamento
+
+## Registered Visit Fallback Code
+
+Si no hay respuesta del departamento, pero `MatIA` ya tiene registrada una visita valida
+para esa sesion o departamento, el sistema no debe abrir de inmediato.
+
+En ese caso:
+
+- solicita un codigo de autorizacion de 4 digitos
+- valida ese codigo dentro de la misma memoria de sesion
+- solo abre si el codigo coincide con el esperado
+
+Esto permite un fallback seguro cuando la llamada al departamento no responde,
+sin degradar a una apertura por simple reclamo verbal del visitante.
+
+## Department Authorization Runtime Contract
+
+Para desacoplar a `MatIA` del mecanismo exacto de llamada al departamento,
+el scaffold agrega un runtime de autorizacion con tres carpetas:
+
+- `department_authorization/requests`
+- `department_authorization/responses`
+- `department_authorization/processed`
+
+`MatIA` y el pipeline generan una solicitud estructurada cuando la decision es
+`contact_department`. Luego otro integrador puede producir un evento de respuesta
+por sesion con `approved`, `denied` o `no_response`.
+
+VIGILIA consume ese evento como una nueva entrada de sesion, sin depender de flags
+manuales del CLI ni de acoplar la policy a una implementacion concreta de llamada SIP.

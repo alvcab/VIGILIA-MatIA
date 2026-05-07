@@ -19,6 +19,7 @@ Para esa etapa conviene separar desde ya un repositorio nuevo, pensado sin Aster
 - Documentar una arquitectura base sin Asterisk como capa obligatoria
 - Definir modos de prueba seguros como `audio-only`, `decision-only` y `dry-run`
 - Incluir una base minima ejecutable para policy y simulacion
+- Preparar el flujo conversacional de `MatIA` para contactar al departamento, esperar autorizacion y manejar visitas registradas con codigo
 
 ## Non-Goals
 

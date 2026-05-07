@@ -31,6 +31,7 @@ Recibir audio desde el intercom, transcribirlo, tomar una decision y responder d
 - `baresip-preview`: muestra como quedaria la integracion recomendada con `baresip`
 - `hybrid-decision`: combina reglas y guia lista para una futura capa de modelo
 - `conversation-turn`: prueba continuidad de sesion y segundo turno
+- `department-watch-once`: procesa respuestas de autorizacion de departamento por sesion
 
 ## Estructura
 
@@ -135,10 +136,26 @@ python3 -m app.main --mode baresip-inbox --audio-file runtime/baresip/inbox/demo
 python3 -m app.main --mode baresip-watch-once
 ```
 
+```bash
+python3 -m app.main --mode department-watch-once
+```
+
 El contrato esperado del inbox esta descrito en [docs/baresip-inbox-contract.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/baresip-inbox-contract.md:1).
 
 La integracion recomendada para que `baresip` deposite `WAV` y metadata de forma
 atomica esta descrita en [docs/integracion-baresip-inbox.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/integracion-baresip-inbox.md:1).
+
+Cuando `MatIA` necesita llamar a un departamento, el pipeline deja una solicitud en:
+
+- `runtime/baresip/department_authorization/requests`
+
+Y luego consume respuestas estructuradas desde:
+
+- `runtime/baresip/department_authorization/responses`
+
+guardando resultados en:
+
+- `runtime/baresip/department_authorization/processed`
 
 ## Estado
 

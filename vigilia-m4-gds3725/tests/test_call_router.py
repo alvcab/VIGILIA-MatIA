@@ -17,7 +17,7 @@ class CallRouterTests(unittest.TestCase):
         self.assertEqual(result["decision"]["action"], "clarify_authorization")
         self.assertFalse(result["gate_action"]["would_open"])
 
-    def test_session_replay_authorized_open_routes_to_dry_run_open(self) -> None:
+    def test_session_replay_authorization_claim_without_department_requests_resident(self) -> None:
         session = InMemorySessionFactory().create(
             caller_id="gds-front-door",
             transcript="abre por favor, me estan esperando",
@@ -25,8 +25,8 @@ class CallRouterTests(unittest.TestCase):
 
         result = CallRouter().route(session)
 
-        self.assertEqual(result["decision"]["action"], "open")
-        self.assertTrue(result["gate_action"]["would_open"])
+        self.assertEqual(result["decision"]["action"], "clarify_resident")
+        self.assertFalse(result["gate_action"]["would_open"])
 
     def test_session_replay_greeting_requests_clarification(self) -> None:
         session = InMemorySessionFactory().create(

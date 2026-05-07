@@ -6,12 +6,23 @@ from services.decision.policy import Decision
 def build_spoken_response(decision: Decision) -> str:
     if decision.reason == "trusted_face_match":
         return ""
+    if decision.reason in {"department_denied_access", "registered_visit_code_invalid"}:
+        return "Lo siento, no esta autorizado."
+    if decision.reason == "department_no_response":
+        return f"No tengo respuesta del {decision.department_target.lower()}."
+    if decision.reason == "department_no_response_registered_visit":
+        return (
+            f"No tengo respuesta del {decision.department_target.lower()}. "
+            "Si tienes un codigo de autorizacion de 4 digitos, indicalo ahora."
+        )
     if decision.reason == "greeting_after_no_face_match":
         return "Hola. No reconozco tu rostro. A que residente vienes a ver?"
     if decision.reason == "insufficient_context_after_no_face_match":
-        return "No reconozco tu rostro. Indica a que residente o unidad vienes."
+        return "No reconozco tu rostro. Indica a que residente o departamento vienes."
     if decision.reason == "authorization_claim_without_resident":
-        return "Entendido. Indica que residente o unidad autorizo tu ingreso."
+        return "Entendido. Indica que residente o departamento autorizo tu ingreso."
+    if decision.action == "contact_department":
+        return f"Un momento. Llamare al {decision.department_target.lower()}."
     if decision.action == "open":
         return "Abriendo."
     if decision.action == "ask_retry":
@@ -29,7 +40,7 @@ def build_spoken_response(decision: Decision) -> str:
     if decision.action == "announce_delivery":
         return f"Entendido. Avisare a {decision.resident_hint} por la entrega."
     if decision.action == "clarify_delivery_recipient":
-        return "Indica para que residente o unidad es la entrega."
+        return "Indica para que residente o departamento es la entrega."
     if decision.action == "greet_and_clarify":
         return "Hola. A que residente vienes a ver?"
-    return "Indica a que residente o unidad vienes."
+    return "Indica a que residente o departamento vienes."

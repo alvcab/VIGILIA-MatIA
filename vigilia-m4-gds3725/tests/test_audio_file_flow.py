@@ -3,6 +3,8 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
+from services.decision.conversation_store import ConversationStore
+from services.decision.resident_directory import ResidentDirectory
 from services.telephony.audio_file_flow import AudioFileFlow
 from services.transcription.service import TranscriptionService
 
@@ -27,7 +29,7 @@ class AudioFileFlowTests(unittest.TestCase):
         self.assertTrue(result["model_guidance"]["enabled"])
         self.assertTrue(result["spoken_response"])
 
-    def test_audio_file_flow_can_reach_open_path(self) -> None:
+    def test_audio_file_flow_requires_department_before_opening_for_authorization_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             wav_path = Path(tmpdir) / "sample.wav"
             txt_path = wav_path.with_suffix(".txt")
@@ -39,9 +41,9 @@ class AudioFileFlowTests(unittest.TestCase):
                 audio_file=str(wav_path),
             )
 
-        self.assertEqual(result["decision"]["action"], "open")
-        self.assertTrue(result["gate_action"]["would_open"])
-        self.assertFalse(result["model_guidance"]["enabled"])
+        self.assertEqual(result["decision"]["action"], "clarify_resident")
+        self.assertFalse(result["gate_action"]["would_open"])
+        self.assertTrue(result["model_guidance"]["enabled"])
 
     def test_audio_file_requires_existing_wav(self) -> None:
         with self.assertRaises(FileNotFoundError):
@@ -93,6 +95,35 @@ class AudioFileFlowTests(unittest.TestCase):
             result["spoken_response"],
             "Hola. No reconozco tu rostro. A que residente vienes a ver?",
         )
+
+    def test_audio_file_flow_can_complete_department_authorization_across_turns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wav_first = Path(tmpdir) / "first.wav"
+            wav_second = Path(tmpdir) / "second.wav"
+            wav_first.write_bytes(b"RIFFfakeWAVE")
+            wav_second.write_bytes(b"RIFFfakeWAVE")
+            wav_first.with_suffix(".txt").write_text("vengo donde Alvaro", encoding="utf-8")
+            wav_second.with_suffix(".txt").write_text("", encoding="utf-8")
+            flow = AudioFileFlow(
+                resident_directory=ResidentDirectory.from_yaml_like_file("config/residents.example.yaml"),
+                conversation_store=ConversationStore(tmpdir),
+            )
+
+            first = flow.run(
+                caller_id="gds-front-door",
+                audio_file=str(wav_first),
+                session_id="dept-audio-1",
+            )
+            second = flow.run(
+                caller_id="gds-front-door",
+                audio_file=str(wav_second),
+                session_id="dept-audio-1",
+                department_authorization_status="approved",
+            )
+
+        self.assertEqual(first["decision"]["action"], "contact_department")
+        self.assertEqual(second["decision"]["action"], "open")
+        self.assertTrue(second["gate_action"]["would_open"])
 
     def test_transcription_service_whisper_falls_back_to_sidecar(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -16,6 +16,7 @@ class Decision:
     reason: str
     confidence: str
     resident_hint: str = ""
+    department_target: str = ""
     visitor_intent: str = "unknown"
     next_step: str = "complete"
     follow_up_prompt: str = ""
@@ -98,14 +99,40 @@ def decide_from_text(
         )
 
     resolved_name = ""
+    resolved_department = ""
     if intent.resident_match:
         resolved_name = intent.resident_match.display_name
+        resolved_department = intent.resident_match.unit
     elif intent.resident_hint:
         resolved_name = intent.resident_hint
     elif intent.unit_hint:
         resolved_name = intent.unit_hint
+        resolved_department = intent.unit_hint
 
     if intent.has_explicit_open:
+        if not intent.resident_match and intent.has_authorization_language:
+            next_step = "clarify_resident_for_authorization"
+            return Decision(
+                action="clarify_resident",
+                should_open=False,
+                reason="authorization_claim_without_resident",
+                confidence="high",
+                resident_hint=resolved_name,
+                department_target=resolved_department,
+                visitor_intent="access_request",
+                next_step=next_step,
+                follow_up_prompt=build_follow_up_prompt(
+                    build_prompt_context(
+                        intent,
+                        "access_request",
+                        next_step,
+                        face_recognition_result,
+                        conversation_summary,
+                    )
+                ),
+                turn_index=2,
+                face_recognition_result=face_recognition_result,
+            )
         if not (intent.resident_match or intent.has_authorization_language):
             next_step = "clarify_authorization"
             return Decision(
@@ -114,6 +141,7 @@ def decide_from_text(
                 reason="open_request_without_resident_or_authorization",
                 confidence="high",
                 resident_hint=resolved_name,
+                department_target=resolved_department,
                 visitor_intent="access_request",
                 next_step=next_step,
                 follow_up_prompt=build_follow_up_prompt(
@@ -135,6 +163,7 @@ def decide_from_text(
                 reason="resident_requires_confirmation",
                 confidence="high",
                 resident_hint=resolved_name,
+                department_target=resolved_department,
                 visitor_intent="access_request",
                 next_step=next_step,
                 follow_up_prompt=build_follow_up_prompt(
@@ -155,6 +184,7 @@ def decide_from_text(
             reason="explicit_open_request",
             confidence="medium",
             resident_hint=resolved_name,
+            department_target=resolved_department,
             visitor_intent="access_request",
             face_recognition_result=face_recognition_result,
         )
@@ -168,6 +198,7 @@ def decide_from_text(
                 reason="resident_does_not_accept_delivery",
                 confidence="high",
                 resident_hint=resolved_name,
+                department_target=resolved_department,
                 visitor_intent="delivery",
                 next_step=next_step,
                 follow_up_prompt=build_follow_up_prompt(
@@ -188,6 +219,7 @@ def decide_from_text(
             reason="delivery_with_resident_hint",
             confidence="high",
             resident_hint=resolved_name,
+            department_target=resolved_department,
             visitor_intent="delivery",
             next_step="notify_resident",
             face_recognition_result=face_recognition_result,
@@ -223,6 +255,7 @@ def decide_from_text(
             reason="resident_or_unit_hint_detected",
             confidence="high",
             resident_hint=resolved_name,
+            department_target=resolved_department,
             visitor_intent="visit",
             next_step=next_step,
             follow_up_prompt=build_follow_up_prompt(

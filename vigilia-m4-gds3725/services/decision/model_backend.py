@@ -22,19 +22,19 @@ class StubModelBackend(DecisionModelBackend):
     def generate_follow_up(self, prompt: str) -> ModelResponse:
         lowered = prompt.lower()
         if "no hubo match facial" in lowered:
-            text = "No reconozco tu rostro. Indica a que residente o unidad vienes."
+            text = "No reconozco tu rostro. Indica a que residente o departamento vienes."
         elif "dic e que esta autorizada" in lowered or "la visita dice que esta autorizada" in lowered or "la esperan" in lowered:
-            text = "Indica que residente o unidad autorizo tu ingreso."
+            text = "Indica que residente o departamento autorizo tu ingreso."
         elif "confirmacion breve" in lowered:
             text = "Voy a confirmar con el residente antes de autorizar el ingreso."
         elif "entrega" in lowered:
-            text = "Necesito que indiques para que residente o unidad es la entrega."
+            text = "Necesito que indiques para que residente o departamento es la entrega."
         elif "autorizacion explicita" in lowered:
-            text = "Indica a que residente vienes a ver o quien autorizo tu ingreso."
+            text = "Indica a que residente vienes a ver o que departamento autorizo tu ingreso."
         elif "urgente" in lowered:
             text = "Entendido. Voy a derivar la situacion urgente de inmediato."
-        elif "residente o unidad viene" in lowered:
-            text = "Indica a que residente o unidad vienes."
+        elif "residente o departamento viene" in lowered:
+            text = "Indica a que residente o departamento vienes."
         else:
             text = "Necesito un poco mas de informacion para continuar."
 

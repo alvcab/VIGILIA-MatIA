@@ -34,3 +34,6 @@
 - [x] Documentar a `MatIA` como agente conversacional principal sobre la base SIP/audio sin Asterisk
 - [x] Agregar una interfaz Python interna por turno para que `MatIA` consulte la policy de VIGILIA
 - [x] Agregar un atajo de apertura inmediata por rostro confiable para residentes conocidos
+- [x] Agregar flujo de llamada al departamento con resultados `approved`, `denied` y `no_response`
+- [x] Agregar fallback de visita registrada con codigo de 4 digitos cuando el departamento no responde
+- [x] Agregar runtime `requests/responses/processed` para la respuesta del departamento por sesion

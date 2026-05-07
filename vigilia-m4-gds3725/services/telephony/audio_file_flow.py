@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from services.decision.conversation_store import ConversationStore
 from services.decision.resident_directory import ResidentDirectory
 from services.decision.turn_evaluator import TurnEvaluator, TurnInput
 from services.telephony.audio_ingest import LocalAudioFileIngest
@@ -11,6 +12,7 @@ class AudioFileFlow:
     def __init__(
         self,
         resident_directory: ResidentDirectory | None = None,
+        conversation_store: ConversationStore | None = None,
         *,
         transcription_backend_name: str = "sidecar",
         whisper_model: str = "tiny",
@@ -25,6 +27,7 @@ class AudioFileFlow:
         )
         self._session_factory = SipSessionFactory()
         self._resident_directory = resident_directory
+        self._conversation_store = conversation_store
         self._model_backend_name = model_backend_name
         self._ollama_model = ollama_model
         self._ollama_timeout_seconds = ollama_timeout_seconds
@@ -42,6 +45,8 @@ class AudioFileFlow:
         face_match_confidence: str = "",
         face_match_trusted: bool = False,
         face_check_performed: bool = False,
+        department_authorization_status: str = "",
+        registered_visit_code: str = "",
     ) -> dict[str, object]:
         capture = self._ingest.ingest(audio_file)
         transcription = self._transcription.transcribe_file(capture.source_path)
@@ -63,6 +68,7 @@ class AudioFileFlow:
             )
         evaluator_result = TurnEvaluator(
             self._resident_directory,
+            conversation_store=self._conversation_store,
             model_backend_name=self._model_backend_name,
             ollama_model=self._ollama_model,
             ollama_timeout_seconds=self._ollama_timeout_seconds,
@@ -78,6 +84,8 @@ class AudioFileFlow:
                 face_match_confidence=face_match_confidence,
                 face_match_trusted=face_match_trusted,
                 face_check_performed=face_check_performed,
+                department_authorization_status=department_authorization_status,
+                registered_visit_code=registered_visit_code,
             )
         )
         return {

@@ -49,6 +49,16 @@ class BaresipInbox:
                 normalized["face_match_trusted"] = bool(face_match.get("trusted", False))
             if "checked" in face_match and "face_check_performed" not in normalized:
                 normalized["face_check_performed"] = bool(face_match.get("checked", False))
+        registered_visit = normalized.get("registered_visit")
+        if isinstance(registered_visit, dict):
+            if "code" in registered_visit and "registered_visit_code" not in normalized:
+                normalized["registered_visit_code"] = str(registered_visit.get("code", ""))
+        department_authorization = normalized.get("department_authorization")
+        if isinstance(department_authorization, dict):
+            if "status" in department_authorization and "department_authorization_status" not in normalized:
+                normalized["department_authorization_status"] = str(
+                    department_authorization.get("status", "")
+                )
         return normalized
 
     def processed_result_path_for_audio(self, audio_path: str | Path) -> Path:

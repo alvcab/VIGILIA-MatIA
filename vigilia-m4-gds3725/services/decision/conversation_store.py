@@ -4,7 +4,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from services.decision.conversation import ConversationState, ConversationTurn
+from services.decision.conversation import ConversationState, ConversationTurn, SessionMemory
 
 
 class ConversationStore:
@@ -22,10 +22,12 @@ class ConversationStore:
 
         payload = json.loads(path.read_text(encoding="utf-8"))
         turns = tuple(ConversationTurn(**item) for item in payload.get("turns", []))
+        memory = SessionMemory(**payload.get("memory", {}))
         return ConversationState(
             session_id=payload["session_id"],
             turns=turns,
             next_step=payload.get("next_step", "start"),
+            memory=memory,
         )
 
     def save(self, state: ConversationState) -> None:
@@ -33,6 +35,7 @@ class ConversationStore:
         payload = {
             "session_id": state.session_id,
             "next_step": state.next_step,
+            "memory": asdict(state.memory),
             "turns": [asdict(turn) for turn in state.turns],
         }
         path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")

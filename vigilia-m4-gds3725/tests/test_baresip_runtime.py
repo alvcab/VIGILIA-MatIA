@@ -33,6 +33,9 @@ class BaresipRuntimeBuilderTests(unittest.TestCase):
 
             self.assertTrue(Path(result["config_path"]).exists())
             self.assertTrue(Path(result["accounts_path"]).exists())
+            self.assertTrue(Path(result["department_requests_path"]).exists())
+            self.assertTrue(Path(result["department_responses_path"]).exists())
+            self.assertTrue(Path(result["department_processed_path"]).exists())
             self.assertEqual(
                 result["account_line"],
                 "<sip:vigilia@192.168.1.10:5062;transport=udp>;regint=0",

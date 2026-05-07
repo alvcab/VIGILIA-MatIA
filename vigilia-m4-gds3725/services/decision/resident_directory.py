@@ -30,6 +30,13 @@ class ResidentDirectory:
     def residents(self) -> tuple[Resident, ...]:
         return tuple(self._residents)
 
+    def get_by_id(self, resident_id: str) -> Resident | None:
+        normalized_id = _normalize_value(resident_id)
+        for resident in self._residents:
+            if _normalize_value(resident.resident_id) == normalized_id:
+                return resident
+        return None
+
     def resolve(self, hint: str) -> Resident | None:
         normalized_hint = _normalize_value(hint)
         for resident in self._residents:

@@ -54,11 +54,18 @@ class BaresipRuntimeBuilder:
         audio_path = Path(self._baresip_config.audio_path)
         inbox_path = workdir / "inbox"
         processed_path = workdir / "processed"
+        department_auth_root = workdir / "department_authorization"
+        department_requests_path = department_auth_root / "requests"
+        department_responses_path = department_auth_root / "responses"
+        department_processed_path = department_auth_root / "processed"
 
         workdir.mkdir(parents=True, exist_ok=True)
         audio_path.mkdir(parents=True, exist_ok=True)
         inbox_path.mkdir(parents=True, exist_ok=True)
         processed_path.mkdir(parents=True, exist_ok=True)
+        department_requests_path.mkdir(parents=True, exist_ok=True)
+        department_responses_path.mkdir(parents=True, exist_ok=True)
+        department_processed_path.mkdir(parents=True, exist_ok=True)
         config_path.parent.mkdir(parents=True, exist_ok=True)
         accounts_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -73,5 +80,8 @@ class BaresipRuntimeBuilder:
             "audio_path": str(audio_path),
             "inbox_path": str(inbox_path),
             "processed_path": str(processed_path),
+            "department_requests_path": str(department_requests_path),
+            "department_responses_path": str(department_responses_path),
+            "department_processed_path": str(department_processed_path),
             "account_line": self.build_account_line(),
         }

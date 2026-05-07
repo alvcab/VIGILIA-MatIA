@@ -1,7 +1,7 @@
 residents:
   - id: alvaro
     display_name: Alvaro
-    unit: Casa 1
+    unit: Departamento 1
     allows_voice_open: false
     accepts_delivery: true
     requires_resident_confirmation: true
@@ -9,7 +9,9 @@ residents:
       - alvaro
       - alvaro c
       - alvaro cornejo
-      - casa 1
+      - departamento 1
+      - depto 1
+      - dpto 1
   - id: conserjeria
     display_name: Conserjeria
     unit: Acceso

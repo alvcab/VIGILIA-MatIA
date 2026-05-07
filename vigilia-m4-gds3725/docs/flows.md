@@ -71,6 +71,14 @@
 4. guardar salida JSON en `runtime/baresip/processed`
 5. respetar el contrato definido para `nombre.wav`, `nombre.txt` y `nombre.json`
 
+## department-watch-once
+
+1. escanear `runtime/baresip/department_authorization/responses`
+2. tomar cada respuesta por `session_id`
+3. reinyectar el resultado `approved`, `denied` o `no_response` en la sesion de `MatIA`
+4. guardar salida JSON en `runtime/baresip/department_authorization/processed`
+5. permitir fallback con codigo de visita registrada si corresponde
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

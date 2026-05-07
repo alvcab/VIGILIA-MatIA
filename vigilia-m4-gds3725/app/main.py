@@ -36,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
             "turn-evaluation",
             "baresip-inbox",
             "baresip-watch-once",
+            "department-watch-once",
         ],
         default=None,
     )
@@ -55,6 +56,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--face-checked",
         action="store_true",
         help="Indicates that the device attempted face recognition for this session",
+    )
+    parser.add_argument(
+        "--department-status",
+        default="",
+        help="Department authorization result: approved, denied or no_response",
+    )
+    parser.add_argument(
+        "--registered-visit-code",
+        default="",
+        help="Expected 4-digit authorization code for a pre-registered visit",
     )
     return parser
 
@@ -85,6 +96,7 @@ def main() -> int:
     if mode == "audio-file":
         routed = AudioFileFlow(
             resident_directory=resident_directory,
+            conversation_store=ConversationStore(runtime_dir),
             transcription_backend_name=config.transcription_backend,
             whisper_model=config.whisper_model,
             model_backend_name=config.model_backend,
@@ -136,6 +148,8 @@ def main() -> int:
                 face_match_confidence=args.face_confidence,
                 face_match_trusted=args.face_trusted,
                 face_check_performed=args.face_checked,
+                department_authorization_status=args.department_status,
+                registered_visit_code=args.registered_visit_code,
             )
         )
         print(json.dumps(result, ensure_ascii=True, indent=2))
@@ -177,6 +191,19 @@ def main() -> int:
             ollama_timeout_seconds=config.ollama_timeout_seconds,
         )
         preview = pipeline.process_new_files_once()
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-watch-once":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        preview = pipeline.process_department_responses_once()
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 

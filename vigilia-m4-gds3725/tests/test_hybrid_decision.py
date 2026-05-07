@@ -16,11 +16,12 @@ class HybridDecisionTests(unittest.TestCase):
         self.assertEqual(result["model_guidance"]["backend"], "stub-model")
         self.assertTrue(result["model_guidance"]["generated_text"])
 
-    def test_hybrid_decision_disables_model_guidance_for_terminal_open(self) -> None:
+    def test_hybrid_decision_requests_resident_for_authorization_claim_without_department(self) -> None:
         result = evaluate_hybrid_decision("abre por favor, me estan esperando", self.directory)
-        self.assertFalse(result["model_guidance"]["enabled"])
-        self.assertEqual(result["decision"]["action"], "open")
-        self.assertEqual(result["model_guidance"]["generated_text"], "")
+        self.assertTrue(result["model_guidance"]["enabled"])
+        self.assertEqual(result["decision"]["action"], "clarify_resident")
+        self.assertEqual(result["decision"]["reason"], "authorization_claim_without_resident")
+        self.assertTrue(result["model_guidance"]["generated_text"])
 
     def test_hybrid_decision_can_use_explicit_backend(self) -> None:
         result = evaluate_hybrid_decision(

@@ -22,10 +22,12 @@ class DecisionPolicyTests(unittest.TestCase):
         self.assertFalse(decision.should_open)
         self.assertEqual(decision.visitor_intent, "access_request")
 
-    def test_open_request_with_authorization_language_can_open(self) -> None:
+    def test_open_request_with_authorization_language_without_resident_requests_department(self) -> None:
         decision = decide_from_text("abre por favor, me estan esperando")
-        self.assertEqual(decision.action, "open")
-        self.assertTrue(decision.should_open)
+        self.assertEqual(decision.action, "clarify_resident")
+        self.assertFalse(decision.should_open)
+        self.assertEqual(decision.reason, "authorization_claim_without_resident")
+        self.assertEqual(decision.next_step, "clarify_resident_for_authorization")
 
     def test_open_request_with_resident_requires_confirmation_when_policy_demands_it(self) -> None:
         decision = decide_from_text("abre por favor donde Alvaro", self.directory)
@@ -49,7 +51,7 @@ class DecisionPolicyTests(unittest.TestCase):
         decision = decide_from_text("traigo un paquete")
         self.assertEqual(decision.action, "clarify_delivery_recipient")
         self.assertEqual(decision.visitor_intent, "delivery")
-        self.assertEqual(build_spoken_response(decision), "Indica para que residente o unidad es la entrega.")
+        self.assertEqual(build_spoken_response(decision), "Indica para que residente o departamento es la entrega.")
 
     def test_delivery_with_resident_is_announced(self) -> None:
         decision = decide_from_text("traigo un paquete para Alvaro", self.directory)
@@ -79,7 +81,7 @@ class DecisionPolicyTests(unittest.TestCase):
         self.assertEqual(intent.resident_match.display_name, "Alvaro")
 
     def test_unit_hint_is_resolved_to_resident(self) -> None:
-        decision = decide_from_text("vengo a la casa 1", self.directory)
+        decision = decide_from_text("vengo al departamento 1", self.directory)
         self.assertEqual(decision.action, "announce_resident")
         self.assertEqual(decision.resident_hint, "Alvaro")
 
@@ -94,7 +96,7 @@ class DecisionPolicyTests(unittest.TestCase):
         self.assertEqual(decision.resident_hint, "Alvaro")
 
     def test_short_unit_reply_is_resolved_without_full_phrase(self) -> None:
-        decision = decide_from_text("casa 1", self.directory)
+        decision = decide_from_text("depto 1", self.directory)
         self.assertEqual(decision.action, "announce_resident")
         self.assertEqual(decision.resident_hint, "Alvaro")
 
@@ -102,7 +104,7 @@ class DecisionPolicyTests(unittest.TestCase):
         decision = decide_from_text("hola")
         self.assertTrue(decision.follow_up_prompt)
         self.assertEqual(decision.next_step, "clarify_resident")
-        self.assertEqual(decision.follow_up_prompt, "Solicita de forma breve a que residente o unidad viene.")
+        self.assertEqual(decision.follow_up_prompt, "Solicita de forma breve a que residente o departamento viene.")
 
     def test_authorization_claim_without_resident_requests_specific_clarification(self) -> None:
         decision = decide_from_text("me estan esperando")
@@ -111,7 +113,7 @@ class DecisionPolicyTests(unittest.TestCase):
         self.assertEqual(decision.next_step, "clarify_resident_for_authorization")
         self.assertEqual(
             build_spoken_response(decision),
-            "Entendido. Indica que residente o unidad autorizo tu ingreso.",
+            "Entendido. Indica que residente o departamento autorizo tu ingreso.",
         )
 
 
