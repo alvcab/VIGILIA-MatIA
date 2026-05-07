@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
             "department-watch-once",
             "department-request-list",
             "department-respond",
+            "department-submit-response",
         ],
         default=None,
     )
@@ -237,6 +238,24 @@ def main() -> int:
             session_id=args.session_id,
             status=args.department_status,
             caller_id=args.caller_id,
+        )
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-submit-response":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        preview = pipeline.submit_department_response(
+            session_id=args.session_id,
+            status=args.department_status,
+            caller_id=args.caller_id,
+            producer="matia",
         )
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0

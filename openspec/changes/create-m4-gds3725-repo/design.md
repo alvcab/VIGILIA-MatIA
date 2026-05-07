@@ -212,3 +212,16 @@ Para la etapa actual, el scaffold agrega tambien dos operaciones basicas:
 
 Eso permite usar el flujo con un operador humano, una app futura o un softphone
 sin cambiar la policy de `MatIA`.
+
+El camino preferido, sin embargo, pasa a ser que `MatIA` produzca la respuesta
+de departamento por interfaz Python directa.
+
+Para eso el pipeline agrega una operacion que:
+
+- recibe `session_id`
+- recibe `approved`, `denied` o `no_response`
+- registra el evento de respuesta
+- lo procesa de inmediato contra la memoria de sesion
+
+De esa forma el runtime por archivos sigue existiendo para integracion y fallback,
+pero `MatIA` ya no depende del CLI ni del watcher como mecanismo primario.

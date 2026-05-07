@@ -77,6 +77,28 @@ class DepartmentAuthorizationServiceTests(unittest.TestCase):
                 "Departamento 1",
             )
 
+    def test_create_matia_response_marks_producer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime = DepartmentAuthorizationRuntime(Path(tmpdir) / "baresip")
+            service = DepartmentAuthorizationService(runtime)
+            runtime.save_request(
+                "session-5",
+                {
+                    "session_id": "session-5",
+                    "caller_id": "front-door",
+                    "device_label": "gds3725",
+                    "transport": "sip-udp",
+                    "resident_candidate": "Alvaro",
+                    "department_target": "Departamento 1",
+                    "current_intent": "visit",
+                    "registered_visit_available": False,
+                },
+            )
+
+            result = service.create_matia_response("session-5", "approved")
+            self.assertEqual(result["mode"], "department-respond-matia")
+            self.assertEqual(result["payload"]["producer"], "matia")
+
     def test_create_response_rejects_invalid_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             runtime = DepartmentAuthorizationRuntime(Path(tmpdir) / "baresip")

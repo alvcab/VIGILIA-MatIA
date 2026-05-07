@@ -321,3 +321,42 @@ class BaresipPipelineTests(unittest.TestCase):
             self.assertEqual(result["mode"], "department-watch-once")
             self.assertEqual(result["processed_count"], 1)
             self.assertEqual(result["processed"][0]["decision_action"], "open")
+
+    def test_submit_department_response_processes_event_for_matia_directly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+
+            first_audio = workdir / "inbox" / "matia-direct.wav"
+            first_audio.parent.mkdir(parents=True, exist_ok=True)
+            first_audio.write_bytes(b"RIFFfakeWAVE")
+            first_audio.with_suffix(".txt").write_text("vengo donde Alvaro", encoding="utf-8")
+            pipeline.process_audio_file(
+                str(first_audio),
+                caller_id="front-door",
+                metadata={
+                    "session_id": "matia-direct-1",
+                    "caller_id": "front-door",
+                },
+            )
+
+            result = pipeline.submit_department_response(
+                session_id="matia-direct-1",
+                status="approved",
+                caller_id="front-door",
+            )
+
+        self.assertEqual(result["mode"], "department-submit-response")
+        self.assertEqual(result["response_event"]["payload"]["producer"], "matia")
+        self.assertIsNotNone(result["processed_result"])
+        self.assertEqual(result["processed_result"]["decision_action"], "open")

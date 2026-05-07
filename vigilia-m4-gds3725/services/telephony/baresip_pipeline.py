@@ -6,6 +6,7 @@ from services.decision.conversation_store import ConversationStore
 from services.decision.resident_directory import ResidentDirectory
 from services.decision.turn_evaluator import TurnEvaluator, TurnInput
 from services.telephony.department_authorization_runtime import DepartmentAuthorizationRuntime
+from services.telephony.department_authorization_service import DepartmentAuthorizationService
 from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.baresip_config import BaresipConfig
 from services.telephony.baresip_inbox import BaresipInbox
@@ -27,6 +28,7 @@ class BaresipPipeline:
         self._inbox = BaresipInbox(self._baresip_config.workdir)
         self._conversation_store = ConversationStore(self._baresip_config.workdir)
         self._department_authorization = DepartmentAuthorizationRuntime(self._baresip_config.workdir)
+        self._department_service = DepartmentAuthorizationService(self._department_authorization)
         self._resident_directory = resident_directory
         self._model_backend_name = model_backend_name
         self._ollama_model = ollama_model
@@ -198,4 +200,39 @@ class BaresipPipeline:
             "processed": processed,
             "responses_dir": str(self._department_authorization.responses_root),
             "processed_dir": str(self._department_authorization.processed_root),
+        }
+
+    def submit_department_response(
+        self,
+        session_id: str,
+        status: str,
+        *,
+        caller_id: str = "",
+        device_label: str = "",
+        transport: str = "",
+        producer: str = "matia",
+    ) -> dict[str, object]:
+        response_event = self._department_service.create_matia_response(
+            session_id=session_id,
+            status=status,
+            caller_id=caller_id,
+            device_label=device_label,
+            transport=transport,
+            producer=producer,
+        )
+        watcher_result = self.process_department_responses_once()
+        processed = watcher_result["processed"]
+        selected = next(
+            (
+                item
+                for item in processed
+                if item["session_id"] == session_id and item["status"] == status.strip().lower()
+            ),
+            None,
+        )
+        return {
+            "mode": "department-submit-response",
+            "response_event": response_event,
+            "watcher": watcher_result,
+            "processed_result": selected,
         }

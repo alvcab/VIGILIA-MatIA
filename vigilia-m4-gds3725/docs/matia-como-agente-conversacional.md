@@ -29,6 +29,8 @@ Responsabilidades:
 - conversar con la visita
 - pedir aclaraciones
 - confirmar a que residente viene a ver
+- contactar al departamento cuando VIGILIA lo indique
+- recoger la respuesta del departamento y reenviarla a VIGILIA
 - responder con voz
 - mantener el hilo conversacional de la sesion
 
@@ -150,6 +152,32 @@ Regla:
 - `MatIA` propone o consulta
 - `VIGILIA` autoriza
 - `gate service` ejecuta
+
+Aplicado al caso de departamentos:
+
+- `MatIA` puede llamar o contactar al departamento
+- `MatIA` puede recibir `approved`, `denied` o `no_response`
+- pero quien transforma eso en apertura o rechazo sigue siendo VIGILIA
+
+## Productor principal de respuestas de departamento
+
+Desde este punto del scaffold, el productor principal de la respuesta de departamento
+debe ser `MatIA`.
+
+Eso significa que el camino preferido es:
+
+1. `MatIA` recibe una decision `contact_department`
+2. `MatIA` intenta contactar al departamento
+3. `MatIA` obtiene `approved`, `denied` o `no_response`
+4. `MatIA` entrega ese resultado a VIGILIA por interfaz Python
+5. VIGILIA devuelve `open`, `deny_access` o `request_visit_code`
+
+Los comandos y archivos de runtime quedan como:
+
+- fallback operativo
+- depuracion
+- replay
+- integracion provisional con otras piezas externas
 
 ## Consecuencia para este repo
 

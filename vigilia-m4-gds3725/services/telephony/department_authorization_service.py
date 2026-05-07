@@ -71,3 +71,28 @@ class DepartmentAuthorizationService:
             "request_found": bool(request),
             "payload": payload,
         }
+
+    def create_matia_response(
+        self,
+        session_id: str,
+        status: str,
+        *,
+        caller_id: str = "",
+        device_label: str = "",
+        transport: str = "",
+        producer: str = "matia",
+    ) -> dict[str, object]:
+        result = self.create_response(
+            session_id=session_id,
+            status=status,
+            caller_id=caller_id,
+            device_label=device_label,
+            transport=transport,
+        )
+        payload = dict(result["payload"])
+        payload["producer"] = producer
+        response_path = self._runtime.save_response(session_id, payload)
+        result["mode"] = "department-respond-matia"
+        result["response_path"] = str(response_path)
+        result["payload"] = payload
+        return result

@@ -92,6 +92,14 @@
 3. dejar la respuesta en `runtime/baresip/department_authorization/responses`
 4. esperar a que `department-watch-once` la procese con la memoria de sesion
 
+## department-submit-response
+
+1. `MatIA` toma un `session_id` pendiente
+2. entrega `approved`, `denied` o `no_response` por interfaz directa
+3. el pipeline escribe el evento de respuesta
+4. el pipeline lo procesa de inmediato con la memoria de sesion
+5. devuelve en una sola salida la respuesta de `MatIA` y la decision final de VIGILIA
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`
