@@ -217,6 +217,10 @@ Ese preview le dice a `MatIA`:
 - como levantar el proceso de `baresip`
 - que secuencia de `stdin` usar para `dial`, `hangup` y `quit`
 
+Ademas, `MatIA` ya puede apoyarse en un runner Python en `dry-run` para esa
+llamada saliente. Eso permite probar la integracion conversacional sin exigir
+todavia una llamada SIP real al departamento.
+
 Asi `MatIA` no improvisa la llamada al departamento y no mezcla policy con TTS.
 
 ## Consecuencia para este repo

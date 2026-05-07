@@ -100,6 +100,14 @@
 4. el pipeline lo procesa de inmediato con la memoria de sesion
 5. devuelve en una sola salida la respuesta de `MatIA` y la decision final de VIGILIA
 
+## department-call-run-preview
+
+1. construir el plan de llamada al departamento
+2. resolver el `department_sip_uri` del residente o departamento objetivo
+3. preparar el `startup_command` de `baresip`
+4. preparar la secuencia `dial`, `hangup` y `quit`
+5. devolver un `dry-run` estructurado para que `MatIA` lo use como base de integracion
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

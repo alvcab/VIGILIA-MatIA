@@ -135,6 +135,21 @@ class BaresipPipeline:
             }
         return result
 
+    def preview_department_call_run(
+        self,
+        request_payload: dict[str, object],
+        call_plan: dict[str, object],
+        *,
+        dry_run: bool = True,
+        timeout_seconds: float = 5.0,
+    ) -> dict[str, object]:
+        execution_plan = self._department_call_service.build_execution_plan(request_payload, call_plan)
+        return self._department_call_service.run_execution_plan(
+            execution_plan,
+            dry_run=dry_run,
+            timeout_seconds=timeout_seconds,
+        )
+
     def process_latest(self) -> dict[str, object]:
         candidates = sorted(self._inbox.root.glob("*.wav"), key=lambda path: path.stat().st_mtime, reverse=True)
         if not candidates:

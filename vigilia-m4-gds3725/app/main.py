@@ -42,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
             "department-request-list",
             "department-respond",
             "department-submit-response",
+            "department-call-run-preview",
         ],
         default=None,
     )
@@ -71,6 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--registered-visit-code",
         default="",
         help="Expected 4-digit authorization code for a pre-registered visit",
+    )
+    parser.add_argument(
+        "--department-target",
+        default="",
+        help="Department target label for MatIA outgoing department-call previews",
     )
     return parser
 
@@ -256,6 +262,34 @@ def main() -> int:
             status=args.department_status,
             caller_id=args.caller_id,
             producer="matia",
+        )
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-call-run-preview":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        department_target = args.department_target or "Departamento 1"
+        preview = pipeline.preview_department_call_run(
+            request_payload={
+                "session_id": args.session_id or "department-call-preview",
+                "caller_id": args.caller_id,
+                "resident_candidate": args.text,
+                "department_target": department_target,
+            },
+            call_plan={
+                "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+                "opening_text": "Hola. Habla MatIA de Vigilia.",
+                "authorization_question": "Indica aprobado, rechazado o sin respuesta.",
+                "no_response_strategy": "Si no hay respuesta, se informa a la visita y puede pedirse codigo de 4 digitos.",
+            },
+            dry_run=True,
         )
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0

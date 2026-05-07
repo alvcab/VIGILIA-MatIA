@@ -339,8 +339,46 @@ class BaresipPipelineTests(unittest.TestCase):
 
             result = pipeline.process_department_responses_once()
             self.assertEqual(result["mode"], "department-watch-once")
-            self.assertEqual(result["processed_count"], 1)
-            self.assertEqual(result["processed"][0]["decision_action"], "open")
+        self.assertEqual(result["processed_count"], 1)
+        self.assertEqual(result["processed"][0]["decision_action"], "open")
+
+    def test_preview_department_call_run_returns_dry_run_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+
+            result = pipeline.preview_department_call_run(
+                request_payload={
+                    "session_id": "dept-run-1",
+                    "caller_id": "front-door",
+                    "resident_candidate": "Alvaro",
+                    "department_target": "Departamento 1",
+                },
+                call_plan={
+                    "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+                    "opening_text": "Hola. Habla MatIA de Vigilia.",
+                    "authorization_question": "Autorizas el ingreso?",
+                    "no_response_strategy": "Informar no respuesta.",
+                },
+                dry_run=True,
+            )
+
+        self.assertEqual(result["session_id"], "dept-run-1")
+        self.assertEqual(result["run_result"]["mode"], "dry-run")
+        self.assertEqual(
+            result["run_result"]["startup_command"],
+            ["baresip", "-f", str(workdir / "config")],
+        )
 
     def test_submit_department_response_processes_event_for_matia_directly(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

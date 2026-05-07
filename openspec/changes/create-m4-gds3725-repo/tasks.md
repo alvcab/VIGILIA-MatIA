@@ -42,3 +42,4 @@
 - [x] Agregar una capa de perfil de voz de `MatIA` y un `call_plan_for_matia` para la llamada al departamento
 - [x] Agregar un preview de llamada saliente por `baresip` usando el URI SIP del departamento
 - [x] Agregar un preview operativo del ejecutor de llamada saliente por `baresip`
+- [x] Agregar un runner Python en `dry-run` para la futura llamada saliente al departamento

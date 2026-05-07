@@ -121,4 +121,8 @@ El `baresip_outgoing_call_preview` agrega:
 - preview de ejecucion interactiva de `baresip`
 - secuencia esperada de `dial`, `hangup` y `quit`
 
+Sobre ese contrato, el scaffold agrega un runner Python que puede operar en
+`dry-run` para que `MatIA` pruebe la llamada saliente sin depender todavia de un
+departamento SIP real.
+
 Eso deja definido el contrato para la futura llamada saliente mediada por `baresip`.

@@ -6,6 +6,7 @@ from services.decision.resident_directory import ResidentDirectory
 from services.telephony.baresip_config import BaresipConfig
 from services.telephony.baresip_transport import BaresipTransport
 from services.telephony.baresip_outgoing_call_executor import BaresipOutgoingCallExecutor
+from services.telephony.baresip_outgoing_call_runner import BaresipOutgoingCallRunner
 from services.telephony.sip_config import SipEndpointConfig
 from services.telephony.sip_uri import build_sip_uri
 
@@ -48,6 +49,7 @@ class DepartmentCallService:
         baresip_config: BaresipConfig | None = None,
         transport: BaresipTransport | None = None,
         outgoing_executor: BaresipOutgoingCallExecutor | None = None,
+        outgoing_runner: BaresipOutgoingCallRunner | None = None,
     ) -> None:
         self._baresip_config = baresip_config or BaresipConfig.from_env()
         self._resident_directory = resident_directory
@@ -58,6 +60,7 @@ class DepartmentCallService:
         )
         self._transport = transport or BaresipTransport(self._baresip_config)
         self._outgoing_executor = outgoing_executor or BaresipOutgoingCallExecutor(self._baresip_config)
+        self._outgoing_runner = outgoing_runner or BaresipOutgoingCallRunner()
 
     def _resolve_target_uri(self, resident_candidate: str, department_target: str) -> str:
         if self._resident_directory is None:
@@ -109,3 +112,22 @@ class DepartmentCallService:
             authorization_question=str(call_plan.get("authorization_question", "")),
             no_response_strategy=str(call_plan.get("no_response_strategy", "")),
         )
+
+    def run_execution_plan(
+        self,
+        execution_plan: DepartmentCallExecutionPlan,
+        *,
+        dry_run: bool = True,
+        timeout_seconds: float = 5.0,
+    ) -> dict[str, object]:
+        run_result = self._outgoing_runner.run_preview(
+            execution_plan.baresip_execution_preview,
+            dry_run=dry_run,
+            timeout_seconds=timeout_seconds,
+        )
+        return {
+            "session_id": execution_plan.session_id,
+            "department_target": execution_plan.department_target,
+            "target_uri": execution_plan.target_uri,
+            "run_result": run_result.as_dict(),
+        }

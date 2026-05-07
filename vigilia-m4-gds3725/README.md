@@ -182,6 +182,12 @@ Con eso `MatIA` sabe:
 - y a que URI SIP del departamento deberia llamar `baresip`
 - y como deberia arrancar `baresip` y pasarle la secuencia `dial/hangup/quit`
 
+Ademas, el repo ya deja un runner Python en `dry-run` para esa llamada saliente:
+
+```bash
+python3 -m app.main --mode department-call-run-preview --caller-id front-door --text Alvaro --department-target "Departamento 1"
+```
+
 ## Estado
 
 Este scaffold no abre portones reales.

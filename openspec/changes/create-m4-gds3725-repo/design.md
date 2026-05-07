@@ -268,3 +268,23 @@ proceso `baresip`:
 
 Con eso la futura integracion real no parte desde cero y `MatIA` puede delegar la
 llamada saliente sobre una interfaz ya estabilizada.
+
+## Python Runner For Outgoing Department Calls
+
+El scaffold agrega ademas un runner controlado desde Python para esa llamada saliente.
+
+Objetivos de esta capa:
+
+- encapsular el uso de `subprocess`
+- permitir `dry-run` como modo por defecto
+- producir un resultado estructurado para `MatIA`
+- separar el contrato de llamada de la ejecucion del proceso
+
+En esta etapa, el runner ya puede:
+
+- recibir el `startup_command`
+- enviar la secuencia de `stdin`
+- devolver `stdout`, `stderr` y `exit_code`
+
+pero sigue usandose de forma segura y simulable en tests, sin depender de una llamada
+SIP real durante el desarrollo.

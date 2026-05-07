@@ -56,6 +56,45 @@ class DepartmentCallServiceTests(unittest.TestCase):
             f"/dial {plan['target_uri']}",
         )
 
+    def test_run_execution_plan_returns_dry_run_result(self) -> None:
+        service = DepartmentCallService(
+            resident_directory=self.directory,
+            sip_config=SipEndpointConfig(
+                device_label="gds3725",
+                local_user="vigilia",
+                local_domain="192.168.100.50",
+                local_port=5062,
+                transport="udp",
+            ),
+            baresip_config=BaresipConfig(
+                binary="baresip",
+                config_path="runtime/baresip/config",
+                accounts_path="runtime/baresip/accounts",
+                audio_path="runtime/baresip/audio",
+                workdir="runtime/baresip",
+            ),
+        )
+        execution_plan = service.build_execution_plan(
+            request_payload={
+                "session_id": "dept-call-2",
+                "caller_id": "front-door",
+                "resident_candidate": "Alvaro",
+                "department_target": "Departamento 1",
+            },
+            call_plan={
+                "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+                "opening_text": "Hola. Habla MatIA de Vigilia.",
+                "authorization_question": "Autorizas el ingreso?",
+                "no_response_strategy": "Informar no respuesta.",
+            },
+        )
+
+        result = service.run_execution_plan(execution_plan, dry_run=True)
+
+        self.assertEqual(result["session_id"], "dept-call-2")
+        self.assertEqual(result["run_result"]["mode"], "dry-run")
+        self.assertFalse(result["run_result"]["started"])
+
 
 if __name__ == "__main__":
     unittest.main()
