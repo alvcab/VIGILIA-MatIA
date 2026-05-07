@@ -10,6 +10,7 @@ from services.decision.conversation_store import ConversationStore
 from services.decision.hybrid import evaluate_hybrid_decision
 from services.decision.policy import decide_from_text
 from services.decision.resident_directory import ResidentDirectory
+from services.decision.turn_evaluator import TurnEvaluator, TurnInput
 from services.telephony.baresip_pipeline import BaresipPipeline
 from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.call_router import CallRouter
@@ -32,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
             "baresip-preview",
             "hybrid-decision",
             "conversation-turn",
+            "turn-evaluation",
             "baresip-inbox",
             "baresip-watch-once",
         ],
@@ -41,6 +43,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--caller-id", default="test-intercom", help="Simulated caller id")
     parser.add_argument("--audio-file", default="", help="Local WAV file for audio-file mode")
     parser.add_argument("--session-id", default="", help="Conversation session id for follow-up tests")
+    parser.add_argument("--face-resident-id", default="", help="Trusted face match resident id")
+    parser.add_argument("--face-display-name", default="", help="Trusted face match display name")
+    parser.add_argument("--face-confidence", default="", help="Trusted face match confidence label")
+    parser.add_argument(
+        "--face-trusted",
+        action="store_true",
+        help="Indicates that the device delivered a trusted resident face match",
+    )
+    parser.add_argument(
+        "--face-checked",
+        action="store_true",
+        help="Indicates that the device attempted face recognition for this session",
+    )
     return parser
 
 
@@ -101,6 +116,29 @@ def main() -> int:
             conversation_store=store,
         ).route(session)
         print(json.dumps(routed, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "turn-evaluation":
+        session_id = args.session_id or "turn-eval-demo"
+        result = TurnEvaluator(
+            resident_directory=resident_directory,
+            conversation_store=ConversationStore(runtime_dir),
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        ).evaluate_turn(
+            TurnInput(
+                session_id=session_id,
+                caller_id=args.caller_id,
+                transcript=args.text,
+                face_match_resident_id=args.face_resident_id,
+                face_match_display_name=args.face_display_name,
+                face_match_confidence=args.face_confidence,
+                face_match_trusted=args.face_trusted,
+                face_check_performed=args.face_checked,
+            )
+        )
+        print(json.dumps(result, ensure_ascii=True, indent=2))
         return 0
 
     if mode == "sip-session":

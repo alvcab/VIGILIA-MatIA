@@ -6,7 +6,7 @@
 
 Flujo objetivo:
 
-`GDS3725 -> telephony -> transcription -> decision -> tts/access_control`
+`GDS3725 -> baresip/telephony -> MatIA -> VIGILIA decision/access_control`
 
 ## Services
 
@@ -23,16 +23,18 @@ Flujo objetivo:
 - reporta tiempos y fallas
 - distingue audio vacio de audio util
 
+### MatIA
+
+- conduce la conversacion
+- pide aclaraciones
+- decide que decir en cada turno
+- consulta a VIGILIA cuando la conversacion necesita una decision sensible
+
 ### Decision
 
 - aplica reglas y prompts
 - decide abrir, aclarar o rechazar
 - usa contexto de residentes
-
-### TTS
-
-- responde con audios canned o TTS corto
-- prioriza mensajes frecuentes de baja latencia
 
 ### Access Control
 
@@ -83,6 +85,17 @@ sin requerir aun una libreria SIP real.
 
 La ruta recomendada actual es:
 
-`GDS3725 -> baresip -> VIGILIA`
+`GDS3725 -> baresip -> MatIA -> VIGILIA`
 
-donde `baresip` actua como user agent / transporte SIP ligero, y VIGILIA conserva la logica de decision, transcripcion y control.
+donde:
+
+- `baresip` actua como user agent / transporte SIP ligero
+- `MatIA` es el agente conversacional principal
+- VIGILIA conserva policy, autorizacion, transcripcion utilitaria y control
+
+El detalle del reparto entre `MatIA` y VIGILIA esta descrito en
+[matia-como-agente-conversacional.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/matia-como-agente-conversacional.md:1).
+
+Si el dispositivo entrega un match facial confiable de residente conocido, VIGILIA
+debe poder devolver apertura inmediata despues del saludo inicial, sin depender del
+resto del flujo conversacional.

@@ -31,3 +31,6 @@
 - [x] Agregar scaffold de runtime y scripts de `baresip`
 - [x] Agregar inbox de `baresip` para procesar llamadas externas en el pipeline de IA
 - [x] Agregar watcher de una pasada para procesar el inbox de `baresip`
+- [x] Documentar a `MatIA` como agente conversacional principal sobre la base SIP/audio sin Asterisk
+- [x] Agregar una interfaz Python interna por turno para que `MatIA` consulte la policy de VIGILIA
+- [x] Agregar un atajo de apertura inmediata por rostro confiable para residentes conocidos

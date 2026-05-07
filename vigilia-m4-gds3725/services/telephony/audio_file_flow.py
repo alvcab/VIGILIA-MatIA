@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
-from services.access_control.dry_run import DryRunGate
-from services.decision.hybrid import evaluate_hybrid_decision
 from services.decision.resident_directory import ResidentDirectory
+from services.decision.turn_evaluator import TurnEvaluator, TurnInput
 from services.telephony.audio_ingest import LocalAudioFileIngest
 from services.telephony.sip_session_factory import SipSessionFactory
-from services.tts.canned_audio import build_spoken_response
 from services.transcription.service import TranscriptionService
 
 
@@ -33,7 +29,20 @@ class AudioFileFlow:
         self._ollama_model = ollama_model
         self._ollama_timeout_seconds = ollama_timeout_seconds
 
-    def run(self, caller_id: str, audio_file: str) -> dict[str, object]:
+    def run(
+        self,
+        caller_id: str,
+        audio_file: str,
+        *,
+        session_id: str = "",
+        device_label: str = "unknown",
+        transport: str = "simulated",
+        face_match_resident_id: str = "",
+        face_match_display_name: str = "",
+        face_match_confidence: str = "",
+        face_match_trusted: bool = False,
+        face_check_performed: bool = False,
+    ) -> dict[str, object]:
         capture = self._ingest.ingest(audio_file)
         transcription = self._transcription.transcribe_file(capture.source_path)
         session = self._session_factory.create(
@@ -41,40 +50,53 @@ class AudioFileFlow:
             capture=capture,
             transcript=transcription.text,
         )
-        hybrid = evaluate_hybrid_decision(
-            transcription.text,
+        if session_id:
+            session = type(session)(
+                session_id=session_id,
+                caller_id=session.caller_id,
+                transcript=session.transcript,
+                audio_source_path=session.audio_source_path,
+                transport=transport,
+                device_label=device_label,
+                prior_turn_count=session.prior_turn_count,
+                created_at=session.created_at,
+            )
+        evaluator_result = TurnEvaluator(
             self._resident_directory,
             model_backend_name=self._model_backend_name,
             ollama_model=self._ollama_model,
             ollama_timeout_seconds=self._ollama_timeout_seconds,
-        )
-        decision = hybrid["decision"]
-        decision_obj = SimpleNamespace(
-            should_open=decision["should_open"],
-            reason=decision["reason"],
-            action=decision["action"],
+        ).evaluate_turn(
+            TurnInput(
+                session_id=session.session_id,
+                caller_id=session.caller_id,
+                transcript=transcription.text,
+                device_label=device_label if device_label != "unknown" else session.device_label,
+                transport=transport if transport != "simulated" else session.transport,
+                face_match_resident_id=face_match_resident_id,
+                face_match_display_name=face_match_display_name,
+                face_match_confidence=face_match_confidence,
+                face_match_trusted=face_match_trusted,
+                face_check_performed=face_check_performed,
+            )
         )
         return {
             "mode": "audio-file",
-            "session": {
-                "session_id": session.session_id,
-                "caller_id": session.caller_id,
-                "transport": session.transport,
-                "device_label": session.device_label,
-            },
+            "session": evaluator_result["session"],
             "audio_capture": {
-            "source_path": capture.source_path,
-            "format": capture.format,
-            "transport": capture.transport,
+                "source_path": capture.source_path,
+                "format": capture.format,
+                "transport": capture.transport,
             },
             "transcription": {
                 "text": transcription.text,
                 "source_path": transcription.source_path,
                 "backend": transcription.backend,
             },
-            "decision": decision,
-            "rule_engine": hybrid["rule_engine"],
-            "model_guidance": hybrid["model_guidance"],
-            "spoken_response": build_spoken_response(decision_obj),
-            "gate_action": DryRunGate().handle(decision_obj),
+            "decision": evaluator_result["decision"],
+            "rule_engine": evaluator_result["rule_engine"],
+            "model_guidance": evaluator_result["model_guidance"],
+            "spoken_response": evaluator_result["spoken_response"],
+            "gate_action": evaluator_result["gate_action"],
+            "conversation_state": evaluator_result["conversation_state"],
         }

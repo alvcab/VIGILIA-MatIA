@@ -20,9 +20,15 @@ class Decision:
     next_step: str = "complete"
     follow_up_prompt: str = ""
     turn_index: int = 1
+    face_recognition_result: str = ""
 
 
-def decide_from_text(text: str, resident_directory: ResidentDirectory | None = None) -> Decision:
+def decide_from_text(
+    text: str,
+    resident_directory: ResidentDirectory | None = None,
+    face_recognition_result: str = "",
+    conversation_summary: str = "",
+) -> Decision:
     intent = extract_intent(text, resident_directory)
 
     if not intent.normalized_text:
@@ -33,6 +39,7 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
             confidence="high",
             visitor_intent="retry",
             next_step="ask_retry",
+            face_recognition_result=face_recognition_result,
         )
 
     if intent.has_urgent_intent:
@@ -45,7 +52,16 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
             resident_hint=intent.resident_match.display_name if intent.resident_match else intent.resident_hint,
             visitor_intent="urgent",
             next_step=next_step,
-            follow_up_prompt=build_follow_up_prompt(build_prompt_context(intent, "urgent", next_step)),
+            follow_up_prompt=build_follow_up_prompt(
+                build_prompt_context(
+                    intent,
+                    "urgent",
+                    next_step,
+                    face_recognition_result,
+                    conversation_summary,
+                )
+            ),
+            face_recognition_result=face_recognition_result,
         )
 
     if intent.has_negative_or_reset_intent:
@@ -56,6 +72,29 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
             confidence="high",
             visitor_intent="reset",
             next_step="reset",
+            face_recognition_result=face_recognition_result,
+        )
+
+    if intent.has_authorization_language and not intent.has_explicit_open and not (intent.resident_match or intent.resident_hint or intent.unit_hint):
+        next_step = "clarify_resident_for_authorization"
+        return Decision(
+            action="clarify_resident",
+            should_open=False,
+            reason="authorization_claim_without_resident",
+            confidence="high",
+            visitor_intent="authorization_claim",
+            next_step=next_step,
+            follow_up_prompt=build_follow_up_prompt(
+                build_prompt_context(
+                    intent,
+                    "authorization_claim",
+                    next_step,
+                    face_recognition_result,
+                    conversation_summary,
+                )
+            ),
+            turn_index=2,
+            face_recognition_result=face_recognition_result,
         )
 
     resolved_name = ""
@@ -78,8 +117,15 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
                 visitor_intent="access_request",
                 next_step=next_step,
                 follow_up_prompt=build_follow_up_prompt(
-                    build_prompt_context(intent, "access_request", next_step)
+                    build_prompt_context(
+                        intent,
+                        "access_request",
+                        next_step,
+                        face_recognition_result,
+                        conversation_summary,
+                    )
                 ),
+                face_recognition_result=face_recognition_result,
             )
         if intent.resident_match and not intent.resident_match.allows_voice_open:
             next_step = "ask_resident_confirmation"
@@ -92,9 +138,16 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
                 visitor_intent="access_request",
                 next_step=next_step,
                 follow_up_prompt=build_follow_up_prompt(
-                    build_prompt_context(intent, "access_request", next_step)
+                    build_prompt_context(
+                        intent,
+                        "access_request",
+                        next_step,
+                        face_recognition_result,
+                        conversation_summary,
+                    )
                 ),
                 turn_index=2,
+                face_recognition_result=face_recognition_result,
             )
         return Decision(
             action="open",
@@ -103,6 +156,7 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
             confidence="medium",
             resident_hint=resolved_name,
             visitor_intent="access_request",
+            face_recognition_result=face_recognition_result,
         )
 
     if intent.has_delivery_intent and (intent.resident_hint or intent.unit_hint):
@@ -117,9 +171,16 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
                 visitor_intent="delivery",
                 next_step=next_step,
                 follow_up_prompt=build_follow_up_prompt(
-                    build_prompt_context(intent, "delivery", next_step)
+                    build_prompt_context(
+                        intent,
+                        "delivery",
+                        next_step,
+                        face_recognition_result,
+                        conversation_summary,
+                    )
                 ),
                 turn_index=2,
+                face_recognition_result=face_recognition_result,
             )
         return Decision(
             action="announce_delivery",
@@ -129,6 +190,7 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
             resident_hint=resolved_name,
             visitor_intent="delivery",
             next_step="notify_resident",
+            face_recognition_result=face_recognition_result,
         )
 
     if intent.has_delivery_intent:
@@ -140,8 +202,17 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
             confidence="high",
             visitor_intent="delivery",
             next_step=next_step,
-            follow_up_prompt=build_follow_up_prompt(build_prompt_context(intent, "delivery", next_step)),
+            follow_up_prompt=build_follow_up_prompt(
+                build_prompt_context(
+                    intent,
+                    "delivery",
+                    next_step,
+                    face_recognition_result,
+                    conversation_summary,
+                )
+            ),
             turn_index=2,
+            face_recognition_result=face_recognition_result,
         )
 
     if intent.resident_hint or intent.unit_hint:
@@ -154,29 +225,58 @@ def decide_from_text(text: str, resident_directory: ResidentDirectory | None = N
             resident_hint=resolved_name,
             visitor_intent="visit",
             next_step=next_step,
-            follow_up_prompt=build_follow_up_prompt(build_prompt_context(intent, "visit", next_step)),
+            follow_up_prompt=build_follow_up_prompt(
+                build_prompt_context(
+                    intent,
+                    "visit",
+                    next_step,
+                    face_recognition_result,
+                    conversation_summary,
+                )
+            ),
             turn_index=2 if intent.resident_match else 1,
+            face_recognition_result=face_recognition_result,
         )
 
     if intent.has_greeting:
+        reason = "greeting_after_no_face_match" if face_recognition_result == "no_match" else "greeting_without_access_request"
         return Decision(
             action="greet_and_clarify",
             should_open=False,
-            reason="greeting_without_access_request",
+            reason=reason,
             confidence="high",
             visitor_intent="greeting",
             next_step="clarify_resident",
-            follow_up_prompt=build_follow_up_prompt(build_prompt_context(intent, "greeting", "clarify_resident")),
+            follow_up_prompt=build_follow_up_prompt(
+                build_prompt_context(
+                    intent,
+                    "greeting",
+                    "clarify_resident",
+                    face_recognition_result,
+                    conversation_summary,
+                )
+            ),
             turn_index=2,
+            face_recognition_result=face_recognition_result,
         )
 
+    reason = "insufficient_context_after_no_face_match" if face_recognition_result == "no_match" else "insufficient_context"
     return Decision(
         action="clarify_resident",
         should_open=False,
-        reason="insufficient_context",
+        reason=reason,
         confidence="medium",
         visitor_intent="unknown",
         next_step="clarify_resident",
-        follow_up_prompt=build_follow_up_prompt(build_prompt_context(intent, "unknown", "clarify_resident")),
+        follow_up_prompt=build_follow_up_prompt(
+            build_prompt_context(
+                intent,
+                "unknown",
+                "clarify_resident",
+                face_recognition_result,
+                conversation_summary,
+            )
+        ),
         turn_index=2,
+        face_recognition_result=face_recognition_result,
     )

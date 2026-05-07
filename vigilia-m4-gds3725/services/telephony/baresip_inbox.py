@@ -27,12 +27,29 @@ class BaresipInbox:
         metadata_path = self.metadata_path_for_audio(audio_path)
         if not metadata_path.exists():
             return {}
-        return json.loads(metadata_path.read_text(encoding="utf-8"))
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        return self.normalize_metadata(payload)
 
     def save_metadata(self, audio_path: str | Path, payload: dict[str, object]) -> Path:
         metadata_path = self.metadata_path_for_audio(audio_path)
         metadata_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
         return metadata_path
+
+    def normalize_metadata(self, payload: dict[str, object]) -> dict[str, object]:
+        normalized = dict(payload)
+        face_match = normalized.get("face_match")
+        if isinstance(face_match, dict):
+            if "resident_id" in face_match and "face_match_resident_id" not in normalized:
+                normalized["face_match_resident_id"] = face_match.get("resident_id", "")
+            if "display_name" in face_match and "face_match_display_name" not in normalized:
+                normalized["face_match_display_name"] = face_match.get("display_name", "")
+            if "confidence" in face_match and "face_match_confidence" not in normalized:
+                normalized["face_match_confidence"] = face_match.get("confidence", "")
+            if "trusted" in face_match and "face_match_trusted" not in normalized:
+                normalized["face_match_trusted"] = bool(face_match.get("trusted", False))
+            if "checked" in face_match and "face_check_performed" not in normalized:
+                normalized["face_check_performed"] = bool(face_match.get("checked", False))
+        return normalized
 
     def processed_result_path_for_audio(self, audio_path: str | Path) -> Path:
         return self._processed / (Path(audio_path).stem + ".result.json")

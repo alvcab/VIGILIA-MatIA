@@ -13,9 +13,17 @@ class PromptContext:
     unit_hint: str
     visitor_intent: str
     next_step: str
+    face_recognition_result: str
+    conversation_summary: str
 
 
-def build_prompt_context(intent: IntentExtraction, visitor_intent: str, next_step: str) -> PromptContext:
+def build_prompt_context(
+    intent: IntentExtraction,
+    visitor_intent: str,
+    next_step: str,
+    face_recognition_result: str = "",
+    conversation_summary: str = "",
+) -> PromptContext:
     resident_display_name = ""
     if intent.resident_match is not None:
         resident_display_name = intent.resident_match.display_name
@@ -29,4 +37,6 @@ def build_prompt_context(intent: IntentExtraction, visitor_intent: str, next_ste
         unit_hint=intent.unit_hint,
         visitor_intent=visitor_intent,
         next_step=next_step,
+        face_recognition_result=face_recognition_result,
+        conversation_summary=conversation_summary,
     )

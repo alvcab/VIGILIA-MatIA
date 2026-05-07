@@ -49,6 +49,7 @@ class DecisionPolicyTests(unittest.TestCase):
         decision = decide_from_text("traigo un paquete")
         self.assertEqual(decision.action, "clarify_delivery_recipient")
         self.assertEqual(decision.visitor_intent, "delivery")
+        self.assertEqual(build_spoken_response(decision), "Indica para que residente o unidad es la entrega.")
 
     def test_delivery_with_resident_is_announced(self) -> None:
         decision = decide_from_text("traigo un paquete para Alvaro", self.directory)
@@ -87,10 +88,31 @@ class DecisionPolicyTests(unittest.TestCase):
         self.assertEqual(decision.action, "announce_resident")
         self.assertEqual(decision.resident_hint, "Alvaro")
 
+    def test_short_resident_reply_is_resolved_without_full_phrase(self) -> None:
+        decision = decide_from_text("alvaro", self.directory)
+        self.assertEqual(decision.action, "announce_resident")
+        self.assertEqual(decision.resident_hint, "Alvaro")
+
+    def test_short_unit_reply_is_resolved_without_full_phrase(self) -> None:
+        decision = decide_from_text("casa 1", self.directory)
+        self.assertEqual(decision.action, "announce_resident")
+        self.assertEqual(decision.resident_hint, "Alvaro")
+
     def test_greeting_generates_follow_up_prompt(self) -> None:
         decision = decide_from_text("hola")
         self.assertTrue(decision.follow_up_prompt)
         self.assertEqual(decision.next_step, "clarify_resident")
+        self.assertEqual(decision.follow_up_prompt, "Solicita de forma breve a que residente o unidad viene.")
+
+    def test_authorization_claim_without_resident_requests_specific_clarification(self) -> None:
+        decision = decide_from_text("me estan esperando")
+        self.assertEqual(decision.action, "clarify_resident")
+        self.assertEqual(decision.reason, "authorization_claim_without_resident")
+        self.assertEqual(decision.next_step, "clarify_resident_for_authorization")
+        self.assertEqual(
+            build_spoken_response(decision),
+            "Entendido. Indica que residente o unidad autorizo tu ingreso.",
+        )
 
 
 if __name__ == "__main__":

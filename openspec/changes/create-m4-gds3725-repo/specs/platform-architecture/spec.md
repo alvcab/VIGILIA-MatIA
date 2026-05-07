@@ -28,3 +28,15 @@ The new platform scaffold SHALL support safe testing modes.
 - **WHEN** a developer runs the scaffold before hardware integration is complete
 - **THEN** the scaffold SHALL provide `decision-only` and `dry-run` modes
 - **AND** those modes SHALL avoid real gate actuation
+
+### Requirement: Trusted Face Match Shortcut
+
+The new platform scaffold SHALL support an immediate-open decision path for trusted resident face matches delivered by the device.
+
+#### Scenario: Trusted resident face match is received after the greeting
+
+- **GIVEN** the system already played the initial greeting
+- **AND** the device provides a trusted face match for a known resident
+- **WHEN** VIGILIA evaluates the turn for `MatIA`
+- **THEN** it SHALL return an immediate open decision
+- **AND** it SHALL not require an additional conversational clarification step

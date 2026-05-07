@@ -123,3 +123,38 @@ El scaffold agrega un watcher no bloqueante:
 - procesa WAVs nuevos del inbox
 - guarda resultados en `runtime/baresip/processed`
 - evita reprocesar archivos ya resueltos
+
+## MatIA As Conversational Agent
+
+La arquitectura objetivo se aclara aun mas:
+
+- `MatIA` sera el agente conversacional principal
+- VIGILIA mantiene la policy y la autorizacion
+- `baresip` mantiene el transporte SIP/audio
+
+Esto implica que el inbox de `baresip` debe entenderse principalmente como:
+
+- canal de integracion simple
+- replay de sesiones
+- diagnostico
+
+y no como el cerebro definitivo del flujo conversacional.
+
+## Internal Turn Interface For MatIA
+
+El scaffold agrega una interfaz Python interna por turno:
+
+- `TurnEvaluator.evaluate_turn(...)`
+
+Su objetivo es que `MatIA` pueda invocar la policy de VIGILIA sin pasar por CLI,
+sin depender del transporte SIP y con estado de conversacion persistente por sesion.
+
+## Trusted Face Shortcut
+
+Si el `GDS3725` entrega un match facial confiable para un residente habilitado:
+
+- el saludo inicial puede sonar primero
+- y luego VIGILIA debe devolver apertura inmediata
+
+Esto evita obligar a `MatIA` a continuar un dialogo innecesario cuando el dispositivo
+ya entrego una identidad residente suficientemente confiable.

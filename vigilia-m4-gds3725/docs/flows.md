@@ -71,6 +71,15 @@
 4. guardar salida JSON en `runtime/baresip/processed`
 5. respetar el contrato definido para `nombre.wav`, `nombre.txt` y `nombre.json`
 
+## Escritura real al inbox
+
+1. exportar audio a `*.wav.tmp`
+2. escribir metadata a `*.json.tmp`
+3. renombrar primero `*.json.tmp -> *.json`
+4. renombrar al final `*.wav.tmp -> *.wav`
+
+El detalle esta en [integracion-baresip-inbox.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/integracion-baresip-inbox.md:1).
+
 ## hybrid-decision
 
 1. evaluar reglas deterministicas

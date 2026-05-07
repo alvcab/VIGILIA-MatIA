@@ -4,6 +4,14 @@ from services.decision.policy import Decision
 
 
 def build_spoken_response(decision: Decision) -> str:
+    if decision.reason == "trusted_face_match":
+        return ""
+    if decision.reason == "greeting_after_no_face_match":
+        return "Hola. No reconozco tu rostro. A que residente vienes a ver?"
+    if decision.reason == "insufficient_context_after_no_face_match":
+        return "No reconozco tu rostro. Indica a que residente o unidad vienes."
+    if decision.reason == "authorization_claim_without_resident":
+        return "Entendido. Indica que residente o unidad autorizo tu ingreso."
     if decision.action == "open":
         return "Abriendo."
     if decision.action == "ask_retry":
@@ -21,7 +29,7 @@ def build_spoken_response(decision: Decision) -> str:
     if decision.action == "announce_delivery":
         return f"Entendido. Avisare a {decision.resident_hint} por la entrega."
     if decision.action == "clarify_delivery_recipient":
-        return "Indica para que residente es la entrega."
+        return "Indica para que residente o unidad es la entrega."
     if decision.action == "greet_and_clarify":
         return "Hola. A que residente vienes a ver?"
-    return "Indica a que residente vienes a ver."
+    return "Indica a que residente o unidad vienes."

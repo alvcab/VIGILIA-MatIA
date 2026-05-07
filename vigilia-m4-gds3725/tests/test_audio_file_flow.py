@@ -50,6 +50,50 @@ class AudioFileFlowTests(unittest.TestCase):
                 audio_file="/tmp/does-not-exist.wav",
             )
 
+    def test_audio_file_flow_can_open_from_trusted_face_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wav_path = Path(tmpdir) / "sample.wav"
+            wav_path.write_bytes(b"RIFFfakeWAVE")
+
+            result = AudioFileFlow().run(
+                caller_id="gds-front-door",
+                audio_file=str(wav_path),
+                session_id="face-demo-1",
+                device_label="gds3725",
+                transport="sip-udp",
+                face_match_resident_id="alvaro",
+                face_match_display_name="Alvaro",
+                face_match_confidence="high",
+                face_match_trusted=True,
+            )
+
+        self.assertEqual(result["decision"]["action"], "open")
+        self.assertEqual(result["decision"]["reason"], "trusted_face_match")
+        self.assertTrue(result["gate_action"]["would_open"])
+        self.assertEqual(result["spoken_response"], "")
+
+    def test_audio_file_flow_can_clarify_after_no_face_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wav_path = Path(tmpdir) / "sample.wav"
+            txt_path = wav_path.with_suffix(".txt")
+            wav_path.write_bytes(b"RIFFfakeWAVE")
+            txt_path.write_text("hola", encoding="utf-8")
+
+            result = AudioFileFlow().run(
+                caller_id="gds-front-door",
+                audio_file=str(wav_path),
+                session_id="face-demo-2",
+                device_label="gds3725",
+                transport="sip-udp",
+                face_check_performed=True,
+            )
+
+        self.assertEqual(result["decision"]["reason"], "greeting_after_no_face_match")
+        self.assertEqual(
+            result["spoken_response"],
+            "Hola. No reconozco tu rostro. A que residente vienes a ver?",
+        )
+
     def test_transcription_service_whisper_falls_back_to_sidecar(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             wav_path = Path(tmpdir) / "sample.wav"

@@ -10,12 +10,19 @@ from services.decision.resident_directory import ResidentDirectory
 def evaluate_hybrid_decision(
     text: str,
     resident_directory: ResidentDirectory | None = None,
+    face_recognition_result: str = "",
+    conversation_summary: str = "",
     model_backend_name: str = "stub",
     model_backend: DecisionModelBackend | None = None,
     ollama_model: str = "vigilia-mini",
     ollama_timeout_seconds: float = 8.0,
 ) -> dict[str, object]:
-    decision = decide_from_text(text, resident_directory)
+    decision = decide_from_text(
+        text,
+        resident_directory,
+        face_recognition_result=face_recognition_result,
+        conversation_summary=conversation_summary,
+    )
     resolved_backend = model_backend or build_model_backend(
         model_backend_name,
         ollama_model=ollama_model,

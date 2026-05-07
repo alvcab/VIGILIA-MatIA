@@ -67,6 +67,10 @@ def extract_intent(text: str, resident_directory: ResidentDirectory | None = Non
             )
         if resident_match is None and unit_hint:
             resident_match = resident_directory.resolve(unit_hint) or resident_directory.resolve_partial(unit_hint)
+        if resident_match is None and not resident_hint and not unit_hint and normalized:
+            resident_match = resident_directory.resolve(normalized) or resident_directory.resolve_partial(normalized)
+            if resident_match is not None:
+                resident_hint = normalized
 
     return IntentExtraction(
         normalized_text=normalized,

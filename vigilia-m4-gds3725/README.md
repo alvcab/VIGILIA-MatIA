@@ -137,9 +137,22 @@ python3 -m app.main --mode baresip-watch-once
 
 El contrato esperado del inbox esta descrito en [docs/baresip-inbox-contract.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/baresip-inbox-contract.md:1).
 
+La integracion recomendada para que `baresip` deposite `WAV` y metadata de forma
+atomica esta descrita en [docs/integracion-baresip-inbox.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/integracion-baresip-inbox.md:1).
+
 ## Estado
 
 Este scaffold no abre portones reales.
 La pila SIP real del `GDS3725` todavia no esta conectada, pero el contrato de sesion/audio sin Asterisk ya queda definido y se puede probar desde WAV local.
 
 `baresip` todavia no es obligatorio para validar el scaffold, pero el repo ya deja listos los archivos `config` y `accounts` para la siguiente etapa.
+
+## Rol de MatIA
+
+En la arquitectura objetivo, `MatIA` sera el agente conversacional principal.
+
+- `MatIA` habla con la visita
+- VIGILIA aplica policy y autorizacion
+- `baresip` queda como puente SIP/audio
+
+El detalle esta en [docs/matia-como-agente-conversacional.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/matia-como-agente-conversacional.md:1).

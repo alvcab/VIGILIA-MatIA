@@ -28,8 +28,8 @@ class ConversationTurnTests(unittest.TestCase):
             first_result = router.route(first)
             second_result = router.route(second)
 
-        self.assertEqual(first_result["conversation_state"]["turn_count"], 1)
-        self.assertEqual(second_result["conversation_state"]["turn_count"], 2)
+        self.assertEqual(first_result["conversation_state"]["turn_count"], 2)
+        self.assertEqual(second_result["conversation_state"]["turn_count"], 4)
         self.assertEqual(second_result["decision"]["resident_hint"], "Alvaro")
 
 
