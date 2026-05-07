@@ -228,6 +228,10 @@ Ese runner ya contempla una sesion saliente en memoria del proceso, para que
 - conservar el contexto mientras escucha al departamento
 - cerrarla cuando ya obtuvo `approved`, `denied` o `no_response`
 
+Encima de eso, el scaffold agrega un servicio persistente de `MatIA` que guarda
+snapshots `active` y `completed` en runtime. La idea es que el host real de
+`MatIA` mantenga viva esa instancia mientras dura la llamada al departamento.
+
 Asi `MatIA` no improvisa la llamada al departamento y no mezcla policy con TTS.
 
 ## Consecuencia para este repo

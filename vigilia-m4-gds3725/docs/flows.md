@@ -116,6 +116,13 @@
 4. `MatIA` conserva la sesion viva mientras espera la respuesta humana
 5. al terminar, `MatIA` cierra la sesion con `hangup` y `quit`
 
+## matia call service persistente
+
+1. `MatIA` mantiene una instancia viva del servicio de llamadas salientes
+2. al iniciar una llamada, el servicio escribe un snapshot en `active`
+3. mientras la llamada existe, el estado se consulta desde esa misma instancia
+4. al cerrar la llamada, el snapshot pasa a `completed`
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

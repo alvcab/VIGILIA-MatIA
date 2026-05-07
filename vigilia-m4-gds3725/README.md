@@ -194,6 +194,12 @@ Y, del lado Python, `MatIA` ya puede modelar la llamada como una sesion en memor
 - mantener la sesion viva mientras escucha la respuesta
 - cerrarla explicitamente al terminar
 
+El repo ahora agrega ademas un servicio persistente pensado para vivir dentro del
+proceso de `MatIA`, con snapshots en:
+
+- `runtime/baresip/matia_call_service/active`
+- `runtime/baresip/matia_call_service/completed`
+
 ## Estado
 
 Este scaffold no abre portones reales.

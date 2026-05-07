@@ -17,6 +17,7 @@ from services.telephony.baresip_pipeline import BaresipPipeline
 from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.call_router import CallRouter
 from services.telephony.in_memory import InMemorySessionFactory
+from services.telephony.matia_call_service import MatiaCallServiceRuntime, MatiaDepartmentCallService
 from services.telephony.sip_adapter import SipAdapter
 from services.tts.canned_audio import build_spoken_response
 
@@ -43,6 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
             "department-respond",
             "department-submit-response",
             "department-call-run-preview",
+            "department-call-service-demo",
+            "department-call-service-status",
         ],
         default=None,
     )
@@ -292,6 +295,69 @@ def main() -> int:
             dry_run=True,
         )
         print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-call-service-demo":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        service = MatiaDepartmentCallService(
+            pipeline,
+            MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
+        )
+        department_target = args.department_target or "Departamento 1"
+        session_id = args.session_id or "department-call-service-demo"
+        call_plan = {
+            "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+            "opening_text": "Hola. Habla MatIA de Vigilia.",
+            "authorization_question": "Indica aprobado, rechazado o sin respuesta.",
+            "no_response_strategy": "Si no hay respuesta, se informa a la visita y puede pedirse codigo de 4 digitos.",
+        }
+        started = service.start_call(
+            request_payload={
+                "session_id": session_id,
+                "caller_id": args.caller_id,
+                "resident_candidate": args.text,
+                "department_target": department_target,
+            },
+            call_plan=call_plan,
+            dry_run=True,
+        )
+        status_after_start = service.get_status(session_id)
+        finished = service.finish_call(session_id)
+        print(
+            json.dumps(
+                {
+                    "mode": "department-call-service-demo",
+                    "started": started,
+                    "status_after_start": status_after_start,
+                    "finished": finished,
+                },
+                ensure_ascii=True,
+                indent=2,
+            )
+        )
+        return 0
+
+    if mode == "department-call-service-status":
+        runtime = MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip")
+        status = runtime.load_status(args.session_id)
+        print(
+            json.dumps(
+                {
+                    "mode": "department-call-service-status",
+                    "session_id": args.session_id,
+                    "status": status,
+                },
+                ensure_ascii=True,
+                indent=2,
+            )
+        )
         return 0
 
     if mode == "hybrid-decision":

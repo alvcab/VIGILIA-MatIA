@@ -132,4 +132,10 @@ Ese runner tambien puede mantener una sesion saliente en memoria del proceso de
 - intercambio de comandos durante la sesion
 - cierre explicito de la llamada
 
+Sobre eso, el scaffold agrega un servicio persistente de `MatIA` que escribe
+snapshots de estado en runtime para reflejar si una llamada al departamento esta:
+
+- activa
+- o ya completada
+
 Eso deja definido el contrato para la futura llamada saliente mediada por `baresip`.

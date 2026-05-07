@@ -290,3 +290,25 @@ En esta etapa, el runner ya puede:
 
 pero sigue usandose de forma segura y simulable en tests, sin depender de una llamada
 SIP real durante el desarrollo.
+
+## Persistent MatIA Call Service
+
+Para que la llamada saliente no dependa de una sola invocacion corta de CLI,
+el scaffold agrega un servicio persistente pensado para vivir dentro del proceso
+de `MatIA`.
+
+Ese servicio:
+
+- conserva la sesion saliente en memoria
+- delega el transporte al runner de `baresip`
+- guarda snapshots de estado en runtime
+- separa `active` y `completed`
+
+Esto permite que `MatIA` modele mejor el flujo real:
+
+- iniciar la llamada al departamento
+- consultar el estado de la sesion
+- cerrarla al terminar
+
+En esta etapa, la persistencia real del proceso sigue siendo responsabilidad del
+host donde viva `MatIA`, pero el contrato de servicio ya queda preparado.
