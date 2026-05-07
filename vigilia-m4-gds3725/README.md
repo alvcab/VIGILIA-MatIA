@@ -188,6 +188,12 @@ Ademas, el repo ya deja un runner Python en `dry-run` para esa llamada saliente:
 python3 -m app.main --mode department-call-run-preview --caller-id front-door --text Alvaro --department-target "Departamento 1"
 ```
 
+Y, del lado Python, `MatIA` ya puede modelar la llamada como una sesion en memoria:
+
+- iniciar la llamada al departamento
+- mantener la sesion viva mientras escucha la respuesta
+- cerrarla explicitamente al terminar
+
 ## Estado
 
 Este scaffold no abre portones reales.

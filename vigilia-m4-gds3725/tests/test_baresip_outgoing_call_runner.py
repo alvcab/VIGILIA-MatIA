@@ -8,8 +8,15 @@ from services.telephony.baresip_outgoing_call_runner import BaresipOutgoingCallR
 class _FakeProcess:
     def __init__(self, expected_command: list[str]) -> None:
         self.expected_command = expected_command
-        self.stdin = object()
+        self.stdin = self
         self._captured_input = ""
+        self._writes: list[str] = []
+
+    def write(self, data: str) -> None:
+        self._writes.append(data)
+
+    def flush(self) -> None:
+        return None
 
     def communicate(self, input: str | None = None, timeout: float | None = None) -> tuple[str, str]:
         self._captured_input = input or ""
@@ -59,6 +66,61 @@ class BaresipOutgoingCallRunnerTests(unittest.TestCase):
             "/dial sip:depto1@192.168.100.71:5060;transport=udp\n/hangup\n/quit\n",
         )
         self.assertEqual(result["stdout"], "ok")
+
+    def test_session_lifecycle_can_start_and_finish_in_dry_run(self) -> None:
+        runner = BaresipOutgoingCallRunner()
+        started = runner.start_session(
+            "session-1",
+            {
+                "startup_command": ["baresip", "-f", "runtime/baresip/config"],
+                "target_uri": "sip:depto1@192.168.100.71:5060;transport=udp",
+                "dial_command": "/dial sip:depto1@192.168.100.71:5060;transport=udp",
+            },
+            dry_run=True,
+        )
+        commands_after_start = list(started.sent_commands)
+        finished = runner.finish_session("session-1").as_dict()
+
+        self.assertTrue(started.started)
+        self.assertEqual(commands_after_start, ["/dial sip:depto1@192.168.100.71:5060;transport=udp"])
+        self.assertEqual(finished["mode"], "dry-run-session")
+        self.assertEqual(
+            finished["stdin_sequence"],
+            ["/dial sip:depto1@192.168.100.71:5060;transport=udp", "/hangup", "/quit"],
+        )
+
+    def test_session_lifecycle_can_start_and_finish_with_process_factory(self) -> None:
+        captured: dict[str, object] = {}
+
+        def factory(command: list[str]) -> _FakeProcess:
+            captured["command"] = list(command)
+            process = _FakeProcess(command)
+            captured["process"] = process
+            return process
+
+        runner = BaresipOutgoingCallRunner(process_factory=factory)
+        started = runner.start_session(
+            "session-2",
+            {
+                "startup_command": ["baresip", "-f", "runtime/baresip/config"],
+                "target_uri": "sip:depto1@192.168.100.71:5060;transport=udp",
+                "dial_command": "/dial sip:depto1@192.168.100.71:5060;transport=udp",
+            },
+            dry_run=False,
+        )
+        finished = runner.finish_session("session-2").as_dict()
+
+        self.assertTrue(started.started)
+        self.assertEqual(
+            captured["process"]._writes,  # type: ignore[attr-defined]
+            [
+                "/dial sip:depto1@192.168.100.71:5060;transport=udp\n",
+                "/hangup\n",
+                "/quit\n",
+            ],
+        )
+        self.assertEqual(finished["mode"], "executed-session")
+        self.assertEqual(finished["stdout"], "ok")
 
 
 if __name__ == "__main__":

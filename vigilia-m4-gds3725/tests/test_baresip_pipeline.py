@@ -380,6 +380,42 @@ class BaresipPipelineTests(unittest.TestCase):
             ["baresip", "-f", str(workdir / "config")],
         )
 
+    def test_department_call_session_lifecycle_returns_structured_results(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+
+            started = pipeline.start_department_call_session(
+                request_payload={
+                    "session_id": "dept-run-2",
+                    "caller_id": "front-door",
+                    "resident_candidate": "Alvaro",
+                    "department_target": "Departamento 1",
+                },
+                call_plan={
+                    "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+                    "opening_text": "Hola. Habla MatIA de Vigilia.",
+                    "authorization_question": "Autorizas el ingreso?",
+                    "no_response_strategy": "Informar no respuesta.",
+                },
+                dry_run=True,
+            )
+            finished = pipeline.finish_department_call_session("dept-run-2")
+
+        self.assertEqual(started["call_session"]["session_id"], "dept-run-2")
+        self.assertTrue(started["call_session"]["started"])
+        self.assertEqual(finished["run_result"]["mode"], "dry-run-session")
+
     def test_submit_department_response_processes_event_for_matia_directly(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "baresip"

@@ -43,3 +43,4 @@
 - [x] Agregar un preview de llamada saliente por `baresip` usando el URI SIP del departamento
 - [x] Agregar un preview operativo del ejecutor de llamada saliente por `baresip`
 - [x] Agregar un runner Python en `dry-run` para la futura llamada saliente al departamento
+- [x] Agregar manejo de sesion saliente en memoria para que `MatIA` pueda iniciar y cerrar la llamada al departamento

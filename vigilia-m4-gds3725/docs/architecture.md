@@ -125,4 +125,11 @@ Sobre ese contrato, el scaffold agrega un runner Python que puede operar en
 `dry-run` para que `MatIA` pruebe la llamada saliente sin depender todavia de un
 departamento SIP real.
 
+Ese runner tambien puede mantener una sesion saliente en memoria del proceso de
+`MatIA`, lo que permite separar:
+
+- inicio de la llamada
+- intercambio de comandos durante la sesion
+- cierre explicito de la llamada
+
 Eso deja definido el contrato para la futura llamada saliente mediada por `baresip`.

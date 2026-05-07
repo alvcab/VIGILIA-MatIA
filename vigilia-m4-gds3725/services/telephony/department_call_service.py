@@ -131,3 +131,36 @@ class DepartmentCallService:
             "target_uri": execution_plan.target_uri,
             "run_result": run_result.as_dict(),
         }
+
+    def start_execution_session(
+        self,
+        execution_plan: DepartmentCallExecutionPlan,
+        *,
+        dry_run: bool = True,
+    ) -> dict[str, object]:
+        session = self._outgoing_runner.start_session(
+            execution_plan.session_id,
+            execution_plan.baresip_execution_preview,
+            dry_run=dry_run,
+        )
+        return {
+            "session_id": execution_plan.session_id,
+            "department_target": execution_plan.department_target,
+            "target_uri": execution_plan.target_uri,
+            "call_session": session.as_dict(),
+        }
+
+    def finish_execution_session(
+        self,
+        session_id: str,
+        *,
+        timeout_seconds: float = 5.0,
+    ) -> dict[str, object]:
+        run_result = self._outgoing_runner.finish_session(
+            session_id,
+            timeout_seconds=timeout_seconds,
+        )
+        return {
+            "session_id": session_id,
+            "run_result": run_result.as_dict(),
+        }

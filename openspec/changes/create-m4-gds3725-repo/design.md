@@ -285,6 +285,8 @@ En esta etapa, el runner ya puede:
 - recibir el `startup_command`
 - enviar la secuencia de `stdin`
 - devolver `stdout`, `stderr` y `exit_code`
+- mantener una sesion saliente en memoria mientras `MatIA` conversa con el departamento
+- cerrar esa sesion de forma explicita cuando la llamada termina
 
 pero sigue usandose de forma segura y simulable en tests, sin depender de una llamada
 SIP real durante el desarrollo.

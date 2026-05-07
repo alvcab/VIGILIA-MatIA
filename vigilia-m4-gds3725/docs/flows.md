@@ -108,6 +108,14 @@
 4. preparar la secuencia `dial`, `hangup` y `quit`
 5. devolver un `dry-run` estructurado para que `MatIA` lo use como base de integracion
 
+## department call session en memoria
+
+1. `MatIA` construye el plan de llamada al departamento
+2. inicia una sesion saliente en memoria del proceso
+3. `baresip` recibe `dial` al comienzo de la sesion
+4. `MatIA` conserva la sesion viva mientras espera la respuesta humana
+5. al terminar, `MatIA` cierra la sesion con `hangup` y `quit`
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

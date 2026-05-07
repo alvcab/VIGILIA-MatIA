@@ -221,6 +221,13 @@ Ademas, `MatIA` ya puede apoyarse en un runner Python en `dry-run` para esa
 llamada saliente. Eso permite probar la integracion conversacional sin exigir
 todavia una llamada SIP real al departamento.
 
+Ese runner ya contempla una sesion saliente en memoria del proceso, para que
+`MatIA` pueda:
+
+- iniciar la llamada
+- conservar el contexto mientras escucha al departamento
+- cerrarla cuando ya obtuvo `approved`, `denied` o `no_response`
+
 Asi `MatIA` no improvisa la llamada al departamento y no mezcla policy con TTS.
 
 ## Consecuencia para este repo
