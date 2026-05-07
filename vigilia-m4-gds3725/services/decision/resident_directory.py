@@ -17,6 +17,7 @@ class Resident:
     display_name: str
     unit: str
     aliases: tuple[str, ...]
+    department_sip_uri: str = ""
     allows_voice_open: bool = False
     accepts_delivery: bool = True
     requires_resident_confirmation: bool = True
@@ -83,6 +84,7 @@ class ResidentDirectory:
                             display_name=str(current.get("display_name", current.get("id", ""))),
                             unit=str(current.get("unit", "")),
                             aliases=tuple(current.get("aliases", [])),
+                            department_sip_uri=str(current.get("department_sip_uri", "")),
                             allows_voice_open=bool(current.get("allows_voice_open", False)),
                             accepts_delivery=bool(current.get("accepts_delivery", True)),
                             requires_resident_confirmation=bool(
@@ -103,6 +105,10 @@ class ResidentDirectory:
 
             if stripped.startswith("unit:"):
                 current["unit"] = stripped.split(":", 1)[1].strip()
+                continue
+
+            if stripped.startswith("department_sip_uri:"):
+                current["department_sip_uri"] = stripped.split(":", 1)[1].strip()
                 continue
 
             if stripped.startswith("aliases:"):
@@ -135,6 +141,7 @@ class ResidentDirectory:
                     display_name=str(current.get("display_name", current.get("id", ""))),
                     unit=str(current.get("unit", "")),
                     aliases=tuple(current.get("aliases", [])),
+                    department_sip_uri=str(current.get("department_sip_uri", "")),
                     allows_voice_open=bool(current.get("allows_voice_open", False)),
                     accepts_delivery=bool(current.get("accepts_delivery", True)),
                     requires_resident_confirmation=bool(

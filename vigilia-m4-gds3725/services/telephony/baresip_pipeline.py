@@ -5,6 +5,8 @@ from pathlib import Path
 from services.decision.conversation_store import ConversationStore
 from services.decision.resident_directory import ResidentDirectory
 from services.decision.turn_evaluator import TurnEvaluator, TurnInput
+from services.telephony.department_call_service import DepartmentCallService
+from services.telephony.department_call_plan import DepartmentCallRequest, build_department_call_plan
 from services.telephony.department_authorization_runtime import DepartmentAuthorizationRuntime
 from services.telephony.department_authorization_service import DepartmentAuthorizationService
 from services.telephony.audio_file_flow import AudioFileFlow
@@ -29,6 +31,7 @@ class BaresipPipeline:
         self._conversation_store = ConversationStore(self._baresip_config.workdir)
         self._department_authorization = DepartmentAuthorizationRuntime(self._baresip_config.workdir)
         self._department_service = DepartmentAuthorizationService(self._department_authorization)
+        self._department_call_service = DepartmentCallService(resident_directory)
         self._resident_directory = resident_directory
         self._model_backend_name = model_backend_name
         self._ollama_model = ollama_model
@@ -66,6 +69,18 @@ class BaresipPipeline:
             "registered_visit_available": bool(memory.get("registered_visit_expected_code", "")),
             "request_type": "department_authorization",
         }
+
+    def _build_department_call_plan(self, request_payload: dict[str, object]) -> dict[str, object]:
+        return build_department_call_plan(
+            DepartmentCallRequest(
+                session_id=str(request_payload["session_id"]),
+                caller_id=str(request_payload["caller_id"]),
+                resident_candidate=str(request_payload.get("resident_candidate", "")),
+                department_target=str(request_payload.get("department_target", "")),
+                current_intent=str(request_payload.get("current_intent", "")),
+                registered_visit_available=bool(request_payload.get("registered_visit_available", False)),
+            )
+        ).as_dict()
 
     def process_audio_file(
         self,
@@ -105,9 +120,15 @@ class BaresipPipeline:
                 session_id=str(request_payload["session_id"]),
                 payload=request_payload,
             )
+            call_plan = self._build_department_call_plan(request_payload)
             result["department_authorization_request"] = {
                 "request_path": str(request_path),
                 "payload": request_payload,
+                "call_plan_for_matia": call_plan,
+                "baresip_outgoing_call_preview": self._department_call_service.build_execution_plan(
+                    request_payload,
+                    call_plan,
+                ).as_dict(),
             }
         return result
 

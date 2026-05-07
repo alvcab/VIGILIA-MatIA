@@ -170,6 +170,17 @@ El camino preferido ya no es el operador manual. El camino preferido es que `Mat
 llame a la interfaz Python del pipeline y entregue la respuesta del departamento
 de forma directa.
 
+Cuando VIGILIA devuelve `contact_department`, el pipeline ya puede entregar dos cosas:
+
+- `call_plan_for_matia`
+- `baresip_outgoing_call_preview`
+
+Con eso `MatIA` sabe:
+
+- que decir
+- con que perfil de voz decirlo
+- y a que URI SIP del departamento deberia llamar `baresip`
+
 ## Estado
 
 Este scaffold no abre portones reales.

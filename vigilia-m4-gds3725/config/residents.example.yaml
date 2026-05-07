@@ -2,6 +2,7 @@ residents:
   - id: alvaro
     display_name: Alvaro
     unit: Departamento 1
+    department_sip_uri: sip:depto1@192.168.100.71:5060;transport=udp
     allows_voice_open: false
     accepts_delivery: true
     requires_resident_confirmation: true
@@ -15,6 +16,7 @@ residents:
   - id: conserjeria
     display_name: Conserjeria
     unit: Acceso
+    department_sip_uri: sip:conserjeria@192.168.100.80:5060;transport=udp
     allows_voice_open: false
     accepts_delivery: false
     requires_resident_confirmation: false

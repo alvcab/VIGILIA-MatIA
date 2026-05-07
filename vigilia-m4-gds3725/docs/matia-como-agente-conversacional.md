@@ -33,6 +33,7 @@ Responsabilidades:
 - recoger la respuesta del departamento y reenviarla a VIGILIA
 - responder con voz
 - mantener el hilo conversacional de la sesion
+- usar un perfil de voz distinto para la visita y para el departamento
 
 `MatIA` no deberia abrir el porton directamente.
 
@@ -178,6 +179,43 @@ Los comandos y archivos de runtime quedan como:
 - depuracion
 - replay
 - integracion provisional con otras piezas externas
+
+## Voz de MatIA
+
+La voz de `MatIA` debe tratarse como una capa separada del transporte SIP.
+
+Perfiles iniciales:
+
+- `matia-visitor-es-cl`
+  - tono calmado y breve
+  - pensado para la visita
+- `matia-department-es-cl`
+  - tono formal y claro
+  - pensado para llamar al departamento
+
+Cuando VIGILIA devuelve `contact_department`, el pipeline ya puede entregar a `MatIA`:
+
+- la solicitud de autorizacion
+- un `call_plan_for_matia`
+
+Ese plan contiene:
+
+- `opening_text`
+- `authorization_question`
+- `no_response_strategy`
+- `voice_plan`
+
+Y tambien puede incluir:
+
+- `baresip_outgoing_call_preview`
+
+Ese preview le dice a `MatIA`:
+
+- desde que URI local saldria la llamada
+- a que URI SIP del departamento deberia llamar
+- como se veria el `invite` inicial por `baresip`
+
+Asi `MatIA` no improvisa la llamada al departamento y no mezcla policy con TTS.
 
 ## Consecuencia para este repo
 

@@ -39,3 +39,5 @@
 - [x] Agregar runtime `requests/responses/processed` para la respuesta del departamento por sesion
 - [x] Agregar operaciones para listar solicitudes pendientes y responder una sesion de departamento
 - [x] Agregar una interfaz Python directa para que `MatIA` entregue la respuesta del departamento sin pasar por CLI
+- [x] Agregar una capa de perfil de voz de `MatIA` y un `call_plan_for_matia` para la llamada al departamento
+- [x] Agregar un preview de llamada saliente por `baresip` usando el URI SIP del departamento

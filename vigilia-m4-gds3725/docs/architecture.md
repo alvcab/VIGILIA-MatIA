@@ -29,6 +29,8 @@ Flujo objetivo:
 - pide aclaraciones
 - decide que decir en cada turno
 - consulta a VIGILIA cuando la conversacion necesita una decision sensible
+- usa un perfil de voz separado para visita y para departamento
+- recibe un plan de llamada al departamento cuando VIGILIA devuelve `contact_department`
 
 ### Decision
 
@@ -99,3 +101,22 @@ El detalle del reparto entre `MatIA` y VIGILIA esta descrito en
 Si el dispositivo entrega un match facial confiable de residente conocido, VIGILIA
 debe poder devolver apertura inmediata despues del saludo inicial, sin depender del
 resto del flujo conversacional.
+
+Cuando no hay rostro confiable y se requiere llamar al departamento:
+
+- VIGILIA no decide la voz ni el transporte
+- VIGILIA entrega a `MatIA` un `call_plan_for_matia`
+- y un `baresip_outgoing_call_preview`
+- ese plan incluye:
+  - texto de apertura
+  - pregunta de autorizacion
+  - estrategia si no hay respuesta
+  - perfil de voz del canal departamento
+
+El `baresip_outgoing_call_preview` agrega:
+
+- URI local de origen
+- URI SIP del departamento
+- preview del `invite`
+
+Eso deja definido el contrato para la futura llamada saliente mediada por `baresip`.

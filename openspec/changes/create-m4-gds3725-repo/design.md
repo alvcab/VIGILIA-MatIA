@@ -225,3 +225,36 @@ Para eso el pipeline agrega una operacion que:
 
 De esa forma el runtime por archivos sigue existiendo para integracion y fallback,
 pero `MatIA` ya no depende del CLI ni del watcher como mecanismo primario.
+
+## MatIA Voice Layer
+
+Antes de cerrar la llamada real al departamento, el scaffold separa la voz de `MatIA`
+del transporte SIP.
+
+Se definen al menos dos perfiles:
+
+- `matia-visitor-es-cl`
+- `matia-department-es-cl`
+
+Y cuando la decision es `contact_department`, el pipeline prepara un
+`call_plan_for_matia` con:
+
+- texto de apertura al departamento
+- pregunta de autorizacion
+- estrategia para `no_response`
+- perfil de voz recomendado
+
+Esto permite que la siguiente integracion de llamada saliente por `baresip`
+se apoye en un contrato ya estable de conversacion, en vez de improvisar
+texto desde la capa de telephony.
+
+## Outgoing Department Call Via Baresip
+
+La siguiente capa del scaffold define tambien un preview concreto de llamada saliente:
+
+- el residente puede declarar un `department_sip_uri`
+- el pipeline construye un `baresip_outgoing_call_preview`
+- ese preview incluye `from_uri`, `to_uri` e `invite`
+
+Esto no ejecuta aun la llamada real, pero deja fijado el contrato tecnico para que
+`MatIA` y `baresip` coordinen una llamada al departamento sin reinterpretar la policy.
