@@ -10,17 +10,23 @@ from services.telephony.baresip_pipeline import BaresipPipeline
 @dataclass(frozen=True)
 class MatiaCallServiceRuntime:
     root: Path
+    requests_root: Path
     active_root: Path
     completed_root: Path
 
     @classmethod
     def from_workdir(cls, workdir: str | Path) -> "MatiaCallServiceRuntime":
         root = Path(workdir) / "matia_call_service"
+        requests_root = root / "requests"
         active_root = root / "active"
         completed_root = root / "completed"
+        requests_root.mkdir(parents=True, exist_ok=True)
         active_root.mkdir(parents=True, exist_ok=True)
         completed_root.mkdir(parents=True, exist_ok=True)
-        return cls(root=root, active_root=active_root, completed_root=completed_root)
+        return cls(root=root, requests_root=requests_root, active_root=active_root, completed_root=completed_root)
+
+    def request_path(self, session_id: str) -> Path:
+        return self.requests_root / f"{session_id}.request.json"
 
     def active_path(self, session_id: str) -> Path:
         return self.active_root / f"{session_id}.active.json"
@@ -33,10 +39,27 @@ class MatiaCallServiceRuntime:
         target.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
         return target
 
+    def save_request(self, session_id: str, payload: dict[str, object]) -> Path:
+        target = self.request_path(session_id)
+        target.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
+        return target
+
     def save_completed(self, session_id: str, payload: dict[str, object]) -> Path:
         target = self.completed_path(session_id)
         target.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
         return target
+
+    def load_request(self, session_id: str) -> dict[str, object] | None:
+        request = self.request_path(session_id)
+        if request.exists():
+            return json.loads(request.read_text(encoding="utf-8"))
+        return None
+
+    def list_pending_requests(self) -> list[dict[str, object]]:
+        items: list[dict[str, object]] = []
+        for request_path in sorted(self.requests_root.glob("*.request.json"), key=lambda path: path.stat().st_mtime):
+            items.append(json.loads(request_path.read_text(encoding="utf-8")))
+        return items
 
     def load_status(self, session_id: str) -> dict[str, object] | None:
         active = self.active_path(session_id)
@@ -46,6 +69,9 @@ class MatiaCallServiceRuntime:
         if completed.exists():
             return json.loads(completed.read_text(encoding="utf-8"))
         return None
+
+    def mark_request_started(self, session_id: str) -> None:
+        self.request_path(session_id).unlink(missing_ok=True)
 
 
 class MatiaDepartmentCallService:
@@ -74,6 +100,60 @@ class MatiaDepartmentCallService:
         }
         self._runtime.save_active(session_id, snapshot)
         return snapshot
+
+    def enqueue_call(
+        self,
+        request_payload: dict[str, object],
+        call_plan: dict[str, object],
+        *,
+        dry_run: bool = True,
+    ) -> dict[str, object]:
+        session_id = str(request_payload.get("session_id", ""))
+        payload = {
+            "service": "matia_department_call_service",
+            "state": "queued",
+            "dry_run": dry_run,
+            "request_payload": request_payload,
+            "call_plan": call_plan,
+        }
+        request_path = self._runtime.save_request(session_id, payload)
+        return {
+            "service": "matia_department_call_service",
+            "state": "queued",
+            "request_path": str(request_path),
+            "request": payload,
+        }
+
+    def run_once(self) -> dict[str, object]:
+        pending = self._runtime.list_pending_requests()
+        if not pending:
+            return {
+                "service": "matia_department_call_service",
+                "mode": "run-once",
+                "processed_count": 0,
+                "processed": [],
+            }
+
+        processed: list[dict[str, object]] = []
+        for item in pending:
+            request_payload = dict(item.get("request_payload", {}))
+            call_plan = dict(item.get("call_plan", {}))
+            dry_run = bool(item.get("dry_run", True))
+            started = self.start_call(
+                request_payload=request_payload,
+                call_plan=call_plan,
+                dry_run=dry_run,
+            )
+            session_id = str(request_payload.get("session_id", ""))
+            self._runtime.mark_request_started(session_id)
+            processed.append(started)
+
+        return {
+            "service": "matia_department_call_service",
+            "mode": "run-once",
+            "processed_count": len(processed),
+            "processed": processed,
+        }
 
     def finish_call(
         self,

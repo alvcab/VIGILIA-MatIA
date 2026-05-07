@@ -119,9 +119,10 @@
 ## matia call service persistente
 
 1. `MatIA` mantiene una instancia viva del servicio de llamadas salientes
-2. al iniciar una llamada, el servicio escribe un snapshot en `active`
-3. mientras la llamada existe, el estado se consulta desde esa misma instancia
-4. al cerrar la llamada, el snapshot pasa a `completed`
+2. una solicitud nueva entra a `queued`
+3. el host `run-once` la promueve a `active`
+4. mientras la llamada existe, el estado se consulta desde esa misma instancia
+5. al cerrar la llamada, el snapshot pasa a `completed`
 
 ## Escritura real al inbox
 

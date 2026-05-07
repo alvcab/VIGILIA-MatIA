@@ -197,8 +197,22 @@ Y, del lado Python, `MatIA` ya puede modelar la llamada como una sesion en memor
 El repo ahora agrega ademas un servicio persistente pensado para vivir dentro del
 proceso de `MatIA`, con snapshots en:
 
+- `runtime/baresip/matia_call_service/requests`
 - `runtime/baresip/matia_call_service/active`
 - `runtime/baresip/matia_call_service/completed`
+
+Y con una cola simple para el host local:
+
+```bash
+python3 -m app.main --mode department-call-service-enqueue --caller-id front-door --text Alvaro --department-target "Departamento 1"
+python3 -m app.main --mode department-call-service-run-once
+```
+
+Si quieres pasar de simulacion a llamada saliente real, el opt-in queda explicito:
+
+```bash
+python3 -m app.main --mode department-call-service-enqueue --caller-id front-door --text Alvaro --department-target "Departamento 1" --live-call
+```
 
 ## Estado
 

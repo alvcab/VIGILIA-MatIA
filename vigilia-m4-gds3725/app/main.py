@@ -46,6 +46,8 @@ def build_parser() -> argparse.ArgumentParser:
             "department-call-run-preview",
             "department-call-service-demo",
             "department-call-service-status",
+            "department-call-service-enqueue",
+            "department-call-service-run-once",
         ],
         default=None,
     )
@@ -80,6 +82,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--department-target",
         default="",
         help="Department target label for MatIA outgoing department-call previews",
+    )
+    parser.add_argument(
+        "--live-call",
+        action="store_true",
+        help="Execute the outgoing department call without dry-run safeguards",
     )
     return parser
 
@@ -358,6 +365,56 @@ def main() -> int:
                 indent=2,
             )
         )
+        return 0
+
+    if mode == "department-call-service-enqueue":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        service = MatiaDepartmentCallService(
+            pipeline,
+            MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
+        )
+        department_target = args.department_target or "Departamento 1"
+        session_id = args.session_id or "department-call-service-queued"
+        preview = service.enqueue_call(
+            request_payload={
+                "session_id": session_id,
+                "caller_id": args.caller_id,
+                "resident_candidate": args.text,
+                "department_target": department_target,
+            },
+            call_plan={
+                "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+                "opening_text": "Hola. Habla MatIA de Vigilia.",
+                "authorization_question": "Indica aprobado, rechazado o sin respuesta.",
+                "no_response_strategy": "Si no hay respuesta, se informa a la visita y puede pedirse codigo de 4 digitos.",
+            },
+            dry_run=not args.live_call,
+        )
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-call-service-run-once":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        service = MatiaDepartmentCallService(
+            pipeline,
+            MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
+        )
+        preview = service.run_once()
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 
     if mode == "hybrid-decision":

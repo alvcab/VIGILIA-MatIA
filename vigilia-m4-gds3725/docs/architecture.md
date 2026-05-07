@@ -135,6 +135,7 @@ Ese runner tambien puede mantener una sesion saliente en memoria del proceso de
 Sobre eso, el scaffold agrega un servicio persistente de `MatIA` que escribe
 snapshots de estado en runtime para reflejar si una llamada al departamento esta:
 
+- en cola
 - activa
 - o ya completada
 

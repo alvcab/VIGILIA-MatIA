@@ -303,9 +303,12 @@ Ese servicio:
 - delega el transporte al runner de `baresip`
 - guarda snapshots de estado en runtime
 - separa `active` y `completed`
+- agrega una cola simple de solicitudes `queued`
+- puede correr en una pasada como host local del proceso de `MatIA`
 
 Esto permite que `MatIA` modele mejor el flujo real:
 
+- encolar una llamada saliente
 - iniciar la llamada al departamento
 - consultar el estado de la sesion
 - cerrarla al terminar
