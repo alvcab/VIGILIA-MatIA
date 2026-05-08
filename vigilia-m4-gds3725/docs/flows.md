@@ -151,6 +151,15 @@
 6. mueve el audio y sidecars a `reply_audio_processed`
 7. guarda un `result.json` por sesion para trazabilidad
 
+## deposito operativo del audio de respuesta
+
+1. una sesion activa publica `reply_audio_capture.audio_file` y `reply_audio_capture.metadata_file`
+2. el hook vivo de `baresip` termina de capturar el WAV de respuesta
+3. el integrador llama a `department-call-service-deposit-reply-audio`
+4. el audio se copia de forma atomica a la ruta publicada por la sesion
+5. la metadata queda al lado del audio
+6. el watcher de `MatIA` procesa luego ese deposito
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

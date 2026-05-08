@@ -221,6 +221,7 @@ Y el host ya puede convertir la respuesta humana del departamento a estado estru
 python3 -m app.main --mode department-call-service-reply --session-id tu-sesion --text "si, autorizado"
 python3 -m app.main --mode department-call-service-timeout --session-id tu-sesion
 python3 -m app.main --mode department-call-service-reply-audio --session-id tu-sesion --audio-file /ruta/a/respuesta.wav
+python3 -m app.main --mode department-call-service-deposit-reply-audio --session-id tu-sesion --audio-file /ruta/a/respuesta.wav
 python3 -m app.main --mode department-call-service-reply-audio-watch-once
 ```
 
@@ -249,6 +250,9 @@ sin tener que adivinar nombres ni estado de sesion.
 
 El watcher solo procesa audios cuya sesion siga `active`, para no mezclar respuestas
 viejas o huerfanas con una llamada ya cerrada.
+
+La integracion operativa para el hook vivo de `baresip` esta descrita en
+[docs/integracion-baresip-reply-audio.md](/Users/alvaroc/Proyectos/VIGILIA-MatIA/vigilia-m4-gds3725/docs/integracion-baresip-reply-audio.md:1).
 
 ## Estado
 

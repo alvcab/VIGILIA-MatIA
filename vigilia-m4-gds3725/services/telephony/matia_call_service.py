@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from services.transcription.service import TranscriptionService
@@ -368,6 +369,66 @@ class MatiaDepartmentCallService:
             "skipped": skipped,
             "reply_audio_inbox": str(self._runtime.reply_audio_inbox_root),
             "reply_audio_processed": str(self._runtime.reply_audio_processed_root),
+        }
+
+    def deposit_reply_audio_capture(
+        self,
+        session_id: str,
+        source_audio_file: str | Path,
+        *,
+        source_label: str = "baresip-live-call",
+        transport: str = "sip-udp",
+    ) -> dict[str, object]:
+        source = Path(source_audio_file)
+        if not source.exists():
+            raise FileNotFoundError(f"reply audio file not found: {source}")
+
+        status = self.get_status(session_id) or {}
+        reply_audio_capture = dict(status.get("reply_audio_capture", {}))
+        target_audio = Path(
+            str(reply_audio_capture.get("audio_file", self._runtime.reply_audio_inbox_path(session_id)))
+        )
+        target_metadata = Path(
+            str(reply_audio_capture.get("metadata_file", self._runtime.reply_audio_metadata_inbox_path(session_id)))
+        )
+
+        target_audio.parent.mkdir(parents=True, exist_ok=True)
+        target_metadata.parent.mkdir(parents=True, exist_ok=True)
+
+        metadata = {
+            "session_id": session_id,
+            "source_label": source_label,
+            "transport": transport,
+            "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "department_target": status.get("start_result", {}).get("department_target", ""),
+            "target_uri": status.get("start_result", {}).get("target_uri", ""),
+            "active_state": status.get("state", ""),
+        }
+
+        temp_audio = target_audio.with_suffix(target_audio.suffix + ".tmp")
+        temp_metadata = target_metadata.with_suffix(target_metadata.suffix + ".tmp")
+        shutil.copyfile(source, temp_audio)
+        temp_metadata.write_text(json.dumps(metadata, ensure_ascii=True, indent=2), encoding="utf-8")
+
+        sidecar_txt = source.with_suffix(".txt")
+        target_txt = target_audio.with_suffix(".txt")
+        temp_txt = target_txt.with_suffix(target_txt.suffix + ".tmp")
+        if sidecar_txt.exists():
+            shutil.copyfile(sidecar_txt, temp_txt)
+
+        temp_metadata.replace(target_metadata)
+        if sidecar_txt.exists():
+            temp_txt.replace(target_txt)
+        temp_audio.replace(target_audio)
+
+        return {
+            "service": "matia_department_call_service",
+            "mode": "deposit-reply-audio-capture",
+            "session_id": session_id,
+            "audio_file": str(target_audio),
+            "metadata_file": str(target_metadata),
+            "sidecar_text_file": str(target_txt) if sidecar_txt.exists() else "",
+            "reply_audio_capture": reply_audio_capture,
         }
 
     def _archive_reply_audio_files(self, audio_path: Path) -> list[str]:

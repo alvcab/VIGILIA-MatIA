@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -361,6 +362,66 @@ class MatiaCallServiceTests(unittest.TestCase):
         self.assertEqual(result["skipped_count"], 1)
         self.assertEqual(result["skipped"][0]["reason"], "session_not_active")
         self.assertTrue(reply_audio_exists)
+
+    def test_deposit_reply_audio_capture_uses_active_session_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+            runtime = MatiaCallServiceRuntime.from_workdir(workdir)
+            service = MatiaDepartmentCallService(
+                pipeline,
+                runtime,
+                transcription_service=TranscriptionService(backend_name="sidecar"),
+            )
+
+            service.start_call(
+                request_payload={
+                    "session_id": "matia-call-7",
+                    "caller_id": "front-door",
+                    "resident_candidate": "Alvaro",
+                    "department_target": "Departamento 1",
+                },
+                call_plan={
+                    "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+                    "opening_text": "Hola. Habla MatIA de Vigilia.",
+                    "authorization_question": "Autorizas el ingreso?",
+                    "no_response_strategy": "Informar no respuesta.",
+                },
+                dry_run=True,
+            )
+
+            source_audio = workdir / "captures" / "department-live.wav"
+            source_audio.parent.mkdir(parents=True, exist_ok=True)
+            source_audio.write_bytes(b"RIFFfakeWAVE")
+            source_audio.with_suffix(".txt").write_text("si, autorizado", encoding="utf-8")
+
+            deposited = service.deposit_reply_audio_capture("matia-call-7", source_audio)
+            target_audio = runtime.reply_audio_inbox_path("matia-call-7")
+            target_json = runtime.reply_audio_metadata_inbox_path("matia-call-7")
+            target_txt = target_audio.with_suffix(".txt")
+            metadata = json.loads(target_json.read_text(encoding="utf-8"))
+            target_audio_exists = target_audio.exists()
+            target_json_exists = target_json.exists()
+            target_txt_exists = target_txt.exists()
+
+        self.assertEqual(deposited["session_id"], "matia-call-7")
+        self.assertEqual(deposited["audio_file"], str(target_audio))
+        self.assertTrue(target_audio_exists)
+        self.assertTrue(target_json_exists)
+        self.assertTrue(target_txt_exists)
+        self.assertEqual(metadata["session_id"], "matia-call-7")
+        self.assertEqual(metadata["active_state"], "active")
+        self.assertEqual(metadata["source_label"], "baresip-live-call")
 
 
 if __name__ == "__main__":

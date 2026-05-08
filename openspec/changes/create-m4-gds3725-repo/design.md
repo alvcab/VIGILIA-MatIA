@@ -291,6 +291,16 @@ La idea es que el hook real de `baresip` no tenga que inferir nombres de archivo
 solo debe depositar el audio de respuesta exactamente en la ruta publicada por la
 sesion viva.
 
+Para eso el scaffold agrega tambien una operacion de deposito explicita:
+
+- recibe `session_id`
+- recibe el `WAV` capturado por la llamada saliente
+- consulta la ruta publicada por la sesion activa
+- copia el audio y metadata a esa ruta de forma atomica
+
+Con esto, el hook vivo de `baresip` puede mantenerse extremadamente simple:
+solo necesita capturar el audio y delegar el deposito al host persistente de `MatIA`.
+
 Ademas del preview del `invite`, el contrato agrega un preview operativo para el
 proceso `baresip`:
 

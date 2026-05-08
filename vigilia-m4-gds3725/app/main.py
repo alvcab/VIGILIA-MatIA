@@ -51,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
             "department-call-service-run-once",
             "department-call-service-reply",
             "department-call-service-reply-audio",
+            "department-call-service-deposit-reply-audio",
             "department-call-service-reply-audio-watch-once",
             "department-call-service-timeout",
         ],
@@ -460,6 +461,30 @@ def main() -> int:
             ),
         )
         preview = service.submit_department_reply_audio(
+            args.session_id,
+            args.audio_file,
+        )
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-call-service-deposit-reply-audio":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        service = MatiaDepartmentCallService(
+            pipeline,
+            MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
+            transcription_service=TranscriptionService(
+                backend_name=config.transcription_backend,
+                whisper_model=config.whisper_model,
+            ),
+        )
+        preview = service.deposit_reply_audio_capture(
             args.session_id,
             args.audio_file,
         )
