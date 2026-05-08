@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,8 @@ class MatiaCallServiceRuntime:
     requests_root: Path
     active_root: Path
     completed_root: Path
+    reply_audio_inbox_root: Path
+    reply_audio_processed_root: Path
 
     @classmethod
     def from_workdir(cls, workdir: str | Path) -> "MatiaCallServiceRuntime":
@@ -21,10 +24,21 @@ class MatiaCallServiceRuntime:
         requests_root = root / "requests"
         active_root = root / "active"
         completed_root = root / "completed"
+        reply_audio_inbox_root = root / "reply_audio_inbox"
+        reply_audio_processed_root = root / "reply_audio_processed"
         requests_root.mkdir(parents=True, exist_ok=True)
         active_root.mkdir(parents=True, exist_ok=True)
         completed_root.mkdir(parents=True, exist_ok=True)
-        return cls(root=root, requests_root=requests_root, active_root=active_root, completed_root=completed_root)
+        reply_audio_inbox_root.mkdir(parents=True, exist_ok=True)
+        reply_audio_processed_root.mkdir(parents=True, exist_ok=True)
+        return cls(
+            root=root,
+            requests_root=requests_root,
+            active_root=active_root,
+            completed_root=completed_root,
+            reply_audio_inbox_root=reply_audio_inbox_root,
+            reply_audio_processed_root=reply_audio_processed_root,
+        )
 
     def request_path(self, session_id: str) -> Path:
         return self.requests_root / f"{session_id}.request.json"
@@ -34,6 +48,12 @@ class MatiaCallServiceRuntime:
 
     def completed_path(self, session_id: str) -> Path:
         return self.completed_root / f"{session_id}.completed.json"
+
+    def reply_audio_inbox_path(self, session_id: str, suffix: str = ".wav") -> Path:
+        return self.reply_audio_inbox_root / f"{session_id}{suffix}"
+
+    def reply_audio_result_path(self, session_id: str) -> Path:
+        return self.reply_audio_processed_root / f"{session_id}.reply-audio.result.json"
 
     def save_active(self, session_id: str, payload: dict[str, object]) -> Path:
         target = self.active_path(session_id)
@@ -61,6 +81,12 @@ class MatiaCallServiceRuntime:
         for request_path in sorted(self.requests_root.glob("*.request.json"), key=lambda path: path.stat().st_mtime):
             items.append(json.loads(request_path.read_text(encoding="utf-8")))
         return items
+
+    def list_pending_reply_audio_files(self) -> list[Path]:
+        return sorted(
+            self.reply_audio_inbox_root.glob("*.wav"),
+            key=lambda path: path.stat().st_mtime,
+        )
 
     def load_status(self, session_id: str) -> dict[str, object] | None:
         active = self.active_path(session_id)
@@ -295,3 +321,60 @@ class MatiaDepartmentCallService:
         }
         self._runtime.save_completed(session_id, completed)
         return completed
+
+    def process_reply_audio_once(self) -> dict[str, object]:
+        processed: list[dict[str, object]] = []
+        skipped: list[dict[str, object]] = []
+
+        for audio_path in self._runtime.list_pending_reply_audio_files():
+            session_id = audio_path.stem
+            status = self.get_status(session_id)
+            if not status or status.get("state") != "active":
+                skipped.append(
+                    {
+                        "session_id": session_id,
+                        "audio_file": str(audio_path),
+                        "reason": "session_not_active",
+                    }
+                )
+                continue
+
+            result = self.submit_department_reply_audio(session_id, audio_path)
+            archived_files = self._archive_reply_audio_files(audio_path)
+            result_path = self._runtime.reply_audio_result_path(session_id)
+            result_path.write_text(json.dumps(result, ensure_ascii=True, indent=2), encoding="utf-8")
+            processed.append(
+                {
+                    "session_id": session_id,
+                    "audio_file": str(audio_path),
+                    "archived_files": archived_files,
+                    "result_path": str(result_path),
+                    "decision_action": result.get("authorization_result", {})
+                    .get("processed_result", {})
+                    .get("decision_action"),
+                }
+            )
+
+        return {
+            "service": "matia_department_call_service",
+            "mode": "reply-audio-watch-once",
+            "processed_count": len(processed),
+            "processed": processed,
+            "skipped_count": len(skipped),
+            "skipped": skipped,
+            "reply_audio_inbox": str(self._runtime.reply_audio_inbox_root),
+            "reply_audio_processed": str(self._runtime.reply_audio_processed_root),
+        }
+
+    def _archive_reply_audio_files(self, audio_path: Path) -> list[str]:
+        archived: list[str] = []
+        for suffix in (audio_path.suffix, ".txt", ".json"):
+            source = audio_path.with_suffix(suffix)
+            if not source.exists():
+                continue
+            target = self._runtime.reply_audio_processed_root / source.name
+            if target.exists():
+                target.unlink()
+            shutil.move(str(source), str(target))
+            archived.append(str(target))
+        return archived

@@ -58,6 +58,12 @@ class BaresipRuntimeBuilder:
         department_requests_path = department_auth_root / "requests"
         department_responses_path = department_auth_root / "responses"
         department_processed_path = department_auth_root / "processed"
+        matia_call_root = workdir / "matia_call_service"
+        matia_requests_path = matia_call_root / "requests"
+        matia_active_path = matia_call_root / "active"
+        matia_completed_path = matia_call_root / "completed"
+        matia_reply_audio_inbox_path = matia_call_root / "reply_audio_inbox"
+        matia_reply_audio_processed_path = matia_call_root / "reply_audio_processed"
 
         workdir.mkdir(parents=True, exist_ok=True)
         audio_path.mkdir(parents=True, exist_ok=True)
@@ -66,6 +72,11 @@ class BaresipRuntimeBuilder:
         department_requests_path.mkdir(parents=True, exist_ok=True)
         department_responses_path.mkdir(parents=True, exist_ok=True)
         department_processed_path.mkdir(parents=True, exist_ok=True)
+        matia_requests_path.mkdir(parents=True, exist_ok=True)
+        matia_active_path.mkdir(parents=True, exist_ok=True)
+        matia_completed_path.mkdir(parents=True, exist_ok=True)
+        matia_reply_audio_inbox_path.mkdir(parents=True, exist_ok=True)
+        matia_reply_audio_processed_path.mkdir(parents=True, exist_ok=True)
         config_path.parent.mkdir(parents=True, exist_ok=True)
         accounts_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -83,5 +94,10 @@ class BaresipRuntimeBuilder:
             "department_requests_path": str(department_requests_path),
             "department_responses_path": str(department_responses_path),
             "department_processed_path": str(department_processed_path),
+            "matia_requests_path": str(matia_requests_path),
+            "matia_active_path": str(matia_active_path),
+            "matia_completed_path": str(matia_completed_path),
+            "matia_reply_audio_inbox_path": str(matia_reply_audio_inbox_path),
+            "matia_reply_audio_processed_path": str(matia_reply_audio_processed_path),
             "account_line": self.build_account_line(),
         }

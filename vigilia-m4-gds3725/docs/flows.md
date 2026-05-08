@@ -140,6 +140,16 @@
 4. si el transcript esta vacio, lo trata como `no_response`
 5. entrega el resultado estructurado a VIGILIA
 
+## watcher de audio para respuesta del departamento
+
+1. `baresip` o el host de `MatIA` deja `reply_audio_inbox/<session_id>.wav`
+2. `MatIA` ejecuta `department-call-service-reply-audio-watch-once`
+3. el watcher verifica que la sesion siga `active`
+4. transcribe el audio y traduce la respuesta a `approved`, `denied` o `no_response`
+5. entrega el resultado a VIGILIA
+6. mueve el audio y sidecars a `reply_audio_processed`
+7. guarda un `result.json` por sesion para trazabilidad
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

@@ -259,6 +259,105 @@ class MatiaCallServiceTests(unittest.TestCase):
             "deny_access",
         )
 
+    def test_process_reply_audio_once_consumes_inbox_and_archives_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+            runtime = MatiaCallServiceRuntime.from_workdir(workdir)
+            service = MatiaDepartmentCallService(
+                pipeline,
+                runtime,
+                transcription_service=TranscriptionService(backend_name="sidecar"),
+            )
+
+            visit_audio = workdir / "inbox" / "visit-watch.wav"
+            visit_audio.parent.mkdir(parents=True, exist_ok=True)
+            visit_audio.write_bytes(b"RIFFfakeWAVE")
+            visit_audio.with_suffix(".txt").write_text("vengo donde Alvaro", encoding="utf-8")
+            pipeline.process_audio_file(
+                str(visit_audio),
+                caller_id="front-door",
+                metadata={"session_id": "matia-call-6", "caller_id": "front-door"},
+            )
+            service.start_call(
+                request_payload={
+                    "session_id": "matia-call-6",
+                    "caller_id": "front-door",
+                    "resident_candidate": "Alvaro",
+                    "department_target": "Departamento 1",
+                },
+                call_plan={
+                    "voice_plan": {"profile": {"profile_id": "matia-department-es-cl"}},
+                    "opening_text": "Hola. Habla MatIA de Vigilia.",
+                    "authorization_question": "Autorizas el ingreso?",
+                    "no_response_strategy": "Informar no respuesta.",
+                },
+                dry_run=True,
+            )
+
+            reply_audio = runtime.reply_audio_inbox_path("matia-call-6")
+            reply_audio.write_bytes(b"RIFFfakeWAVE")
+            reply_audio.with_suffix(".txt").write_text("si, autorizado", encoding="utf-8")
+
+            result = service.process_reply_audio_once()
+            reply_audio_exists = reply_audio.exists()
+            reply_audio_txt_exists = reply_audio.with_suffix(".txt").exists()
+            archived_wav_exists = (runtime.reply_audio_processed_root / "matia-call-6.wav").exists()
+            archived_txt_exists = (runtime.reply_audio_processed_root / "matia-call-6.txt").exists()
+            result_json_exists = runtime.reply_audio_result_path("matia-call-6").exists()
+
+        self.assertEqual(result["processed_count"], 1)
+        self.assertEqual(result["skipped_count"], 0)
+        self.assertEqual(result["processed"][0]["decision_action"], "open")
+        self.assertFalse(reply_audio_exists)
+        self.assertFalse(reply_audio_txt_exists)
+        self.assertTrue(archived_wav_exists)
+        self.assertTrue(archived_txt_exists)
+        self.assertTrue(result_json_exists)
+
+    def test_process_reply_audio_once_skips_unknown_or_inactive_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+            runtime = MatiaCallServiceRuntime.from_workdir(workdir)
+            service = MatiaDepartmentCallService(
+                pipeline,
+                runtime,
+                transcription_service=TranscriptionService(backend_name="sidecar"),
+            )
+
+            reply_audio = runtime.reply_audio_inbox_path("unknown-session")
+            reply_audio.write_bytes(b"RIFFfakeWAVE")
+            reply_audio.with_suffix(".txt").write_text("si, autorizado", encoding="utf-8")
+
+            result = service.process_reply_audio_once()
+            reply_audio_exists = reply_audio.exists()
+
+        self.assertEqual(result["processed_count"], 0)
+        self.assertEqual(result["skipped_count"], 1)
+        self.assertEqual(result["skipped"][0]["reason"], "session_not_active")
+        self.assertTrue(reply_audio_exists)
+
 
 if __name__ == "__main__":
     unittest.main()

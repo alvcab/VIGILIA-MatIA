@@ -259,6 +259,27 @@ La siguiente capa del scaffold define tambien un preview concreto de llamada sal
 Esto no ejecuta aun la llamada real, pero deja fijado el contrato tecnico para que
 `MatIA` y `baresip` coordinen una llamada al departamento sin reinterpretar la policy.
 
+## Live Department Reply Audio Inbox
+
+Para acercar la respuesta del departamento a una llamada saliente real, el host
+persistente de `MatIA` agrega un inbox especifico para audio de respuesta:
+
+- `runtime/baresip/matia_call_service/reply_audio_inbox`
+- `runtime/baresip/matia_call_service/reply_audio_processed`
+
+El objetivo es desacoplar dos responsabilidades:
+
+- `baresip` o el integrador de audio deja un WAV identificado por `session_id`
+- `MatIA` corre un watcher de una pasada, transcribe ese audio y lo traduce a
+  `approved`, `denied` o `no_response`
+
+Restriccion importante:
+
+- el watcher solo debe procesar audios cuya sesion siga `active`
+
+De esa forma, una respuesta tardia o huerfana no reabre una sesion ya cerrada ni
+altera el resultado final de una autorizacion previa.
+
 Ademas del preview del `invite`, el contrato agrega un preview operativo para el
 proceso `baresip`:
 

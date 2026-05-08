@@ -48,3 +48,4 @@
 - [x] Agregar una cola `queued` y un `run-once` del host persistente de `MatIA`
 - [x] Agregar traduccion de respuesta humana del departamento hacia `approved`, `denied` o `no_response`
 - [x] Agregar entrada por audio transcrito para la respuesta del departamento
+- [x] Agregar inbox y watcher de audio para respuestas del departamento con archivado en `processed`

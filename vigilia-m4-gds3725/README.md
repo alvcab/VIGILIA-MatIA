@@ -220,7 +220,26 @@ Y el host ya puede convertir la respuesta humana del departamento a estado estru
 python3 -m app.main --mode department-call-service-reply --session-id tu-sesion --text "si, autorizado"
 python3 -m app.main --mode department-call-service-timeout --session-id tu-sesion
 python3 -m app.main --mode department-call-service-reply-audio --session-id tu-sesion --audio-file /ruta/a/respuesta.wav
+python3 -m app.main --mode department-call-service-reply-audio-watch-once
 ```
+
+Para la integracion viva con la llamada saliente, `MatIA` tambien puede consumir
+audios de respuesta del departamento dejados en:
+
+- `runtime/baresip/matia_call_service/reply_audio_inbox`
+
+Archivando los audios y sidecars ya usados en:
+
+- `runtime/baresip/matia_call_service/reply_audio_processed`
+
+La convencion actual es:
+
+- `reply_audio_inbox/<session_id>.wav`
+- opcional `reply_audio_inbox/<session_id>.txt`
+- opcional `reply_audio_inbox/<session_id>.json`
+
+El watcher solo procesa audios cuya sesion siga `active`, para no mezclar respuestas
+viejas o huerfanas con una llamada ya cerrada.
 
 ## Estado
 
