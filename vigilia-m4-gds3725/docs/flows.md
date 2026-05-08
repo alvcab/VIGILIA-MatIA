@@ -124,6 +124,22 @@
 4. mientras la llamada existe, el estado se consulta desde esa misma instancia
 5. al cerrar la llamada, el snapshot pasa a `completed`
 
+## respuesta del departamento
+
+1. `MatIA` recibe una respuesta humana o detecta timeout
+2. interpreta el texto como `approved`, `denied` o `unknown`
+3. si hay timeout o silencio, usa `no_response`
+4. si obtiene estado valido, lo envia a VIGILIA
+5. VIGILIA devuelve `open`, `deny_access` o `request_visit_code`
+
+## respuesta del departamento por audio
+
+1. `MatIA` recibe un WAV de la llamada saliente
+2. lo transcribe con el backend configurado
+3. interpreta el transcript como `approved`, `denied` o `unknown`
+4. si el transcript esta vacio, lo trata como `no_response`
+5. entrega el resultado estructurado a VIGILIA
+
 ## Escritura real al inbox
 
 1. exportar audio a `*.wav.tmp`

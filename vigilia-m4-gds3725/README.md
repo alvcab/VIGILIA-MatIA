@@ -214,6 +214,14 @@ Si quieres pasar de simulacion a llamada saliente real, el opt-in queda explicit
 python3 -m app.main --mode department-call-service-enqueue --caller-id front-door --text Alvaro --department-target "Departamento 1" --live-call
 ```
 
+Y el host ya puede convertir la respuesta humana del departamento a estado estructurado:
+
+```bash
+python3 -m app.main --mode department-call-service-reply --session-id tu-sesion --text "si, autorizado"
+python3 -m app.main --mode department-call-service-timeout --session-id tu-sesion
+python3 -m app.main --mode department-call-service-reply-audio --session-id tu-sesion --audio-file /ruta/a/respuesta.wav
+```
+
 ## Estado
 
 Este scaffold no abre portones reales.

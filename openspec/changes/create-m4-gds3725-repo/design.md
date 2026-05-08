@@ -313,5 +313,15 @@ Esto permite que `MatIA` modele mejor el flujo real:
 - consultar el estado de la sesion
 - cerrarla al terminar
 
+Y ademas deja claro como se transforma la respuesta humana del departamento:
+
+- texto de aprobacion -> `approved`
+- texto de rechazo -> `denied`
+- timeout o silencio -> `no_response`
+- audio transcrito del departamento -> mismo contrato estructurado
+
+El host persistente no abre por su cuenta. Traduce esa respuesta a un evento
+estructurado y luego delega la decision sensible final a VIGILIA.
+
 En esta etapa, la persistencia real del proceso sigue siendo responsabilidad del
 host donde viva `MatIA`, pero el contrato de servicio ya queda preparado.

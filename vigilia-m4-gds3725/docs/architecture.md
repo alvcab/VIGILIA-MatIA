@@ -139,4 +139,11 @@ snapshots de estado en runtime para reflejar si una llamada al departamento esta
 - activa
 - o ya completada
 
+Ese mismo host tambien es responsable de traducir la respuesta humana del
+departamento hacia un resultado estructurado:
+
+- `approved`
+- `denied`
+- `no_response`
+
 Eso deja definido el contrato para la futura llamada saliente mediada por `baresip`.

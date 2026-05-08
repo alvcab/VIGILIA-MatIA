@@ -18,6 +18,7 @@ from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.call_router import CallRouter
 from services.telephony.in_memory import InMemorySessionFactory
 from services.telephony.matia_call_service import MatiaCallServiceRuntime, MatiaDepartmentCallService
+from services.transcription.service import TranscriptionService
 from services.telephony.sip_adapter import SipAdapter
 from services.tts.canned_audio import build_spoken_response
 
@@ -48,6 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
             "department-call-service-status",
             "department-call-service-enqueue",
             "department-call-service-run-once",
+            "department-call-service-reply",
+            "department-call-service-reply-audio",
+            "department-call-service-timeout",
         ],
         default=None,
     )
@@ -414,6 +418,67 @@ def main() -> int:
             MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
         )
         preview = service.run_once()
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-call-service-reply":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        service = MatiaDepartmentCallService(
+            pipeline,
+            MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
+        )
+        preview = service.submit_department_reply_text(
+            args.session_id,
+            args.text,
+        )
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-call-service-reply-audio":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        service = MatiaDepartmentCallService(
+            pipeline,
+            MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
+            transcription_service=TranscriptionService(
+                backend_name=config.transcription_backend,
+                whisper_model=config.whisper_model,
+            ),
+        )
+        preview = service.submit_department_reply_audio(
+            args.session_id,
+            args.audio_file,
+        )
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "department-call-service-timeout":
+        pipeline = BaresipPipeline(
+            resident_directory=resident_directory,
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        )
+        service = MatiaDepartmentCallService(
+            pipeline,
+            MatiaCallServiceRuntime.from_workdir(resolve_repo_path(config.runtime_dir) / "baresip"),
+        )
+        preview = service.submit_no_response(args.session_id)
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 

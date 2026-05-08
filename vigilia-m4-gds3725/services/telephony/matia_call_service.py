@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from services.transcription.service import TranscriptionService
 from services.telephony.baresip_pipeline import BaresipPipeline
 
 
@@ -75,9 +76,15 @@ class MatiaCallServiceRuntime:
 
 
 class MatiaDepartmentCallService:
-    def __init__(self, pipeline: BaresipPipeline, runtime: MatiaCallServiceRuntime) -> None:
+    def __init__(
+        self,
+        pipeline: BaresipPipeline,
+        runtime: MatiaCallServiceRuntime,
+        transcription_service: TranscriptionService | None = None,
+    ) -> None:
         self._pipeline = pipeline
         self._runtime = runtime
+        self._transcription_service = transcription_service or TranscriptionService()
 
     def start_call(
         self,
@@ -178,3 +185,113 @@ class MatiaDepartmentCallService:
 
     def get_status(self, session_id: str) -> dict[str, object] | None:
         return self._runtime.load_status(session_id)
+
+    def interpret_department_reply(self, transcript: str) -> dict[str, str]:
+        normalized = " ".join(transcript.strip().lower().split())
+        if not normalized:
+            return {"status": "no_response", "reason": "empty_reply"}
+
+        approved_markers = (
+            "si",
+            "sí",
+            "autorizo",
+            "autorizado",
+            "puede pasar",
+            "que pase",
+            "dale acceso",
+            "permito el ingreso",
+        )
+        denied_markers = (
+            "no",
+            "no autorizo",
+            "no autorizado",
+            "rechazo",
+            "no puede pasar",
+            "niego el ingreso",
+            "denegado",
+        )
+
+        if any(marker in normalized for marker in denied_markers):
+            return {"status": "denied", "reason": "matched_denial_marker"}
+        if any(marker in normalized for marker in approved_markers):
+            return {"status": "approved", "reason": "matched_approval_marker"}
+        return {"status": "unknown", "reason": "no_status_marker_detected"}
+
+    def submit_department_reply_text(
+        self,
+        session_id: str,
+        transcript: str,
+    ) -> dict[str, object]:
+        interpretation = self.interpret_department_reply(transcript)
+        if interpretation["status"] == "unknown":
+            snapshot = {
+                "service": "matia_department_call_service",
+                "state": "active",
+                "department_reply_transcript": transcript,
+                "department_reply_interpretation": interpretation,
+                "authorization_result": None,
+            }
+            self._runtime.save_active(session_id, snapshot)
+            return snapshot
+
+        authorization_result = self._pipeline.submit_department_response(
+            session_id=session_id,
+            status=interpretation["status"],
+            caller_id="department-call",
+            producer="matia",
+        )
+        finished = self.finish_call(session_id)
+        snapshot = {
+            "service": "matia_department_call_service",
+            "state": "completed",
+            "department_reply_transcript": transcript,
+            "department_reply_interpretation": interpretation,
+            "authorization_result": authorization_result,
+            "finish_snapshot": finished,
+        }
+        self._runtime.save_completed(session_id, snapshot)
+        self._runtime.active_path(session_id).unlink(missing_ok=True)
+        return snapshot
+
+    def submit_no_response(
+        self,
+        session_id: str,
+        *,
+        reason: str = "department_timeout",
+    ) -> dict[str, object]:
+        authorization_result = self._pipeline.submit_department_response(
+            session_id=session_id,
+            status="no_response",
+            caller_id="department-call",
+            producer="matia",
+        )
+        finished = self.finish_call(session_id)
+        snapshot = {
+            "service": "matia_department_call_service",
+            "state": "completed",
+            "department_reply_transcript": "",
+            "department_reply_interpretation": {"status": "no_response", "reason": reason},
+            "authorization_result": authorization_result,
+            "finish_snapshot": finished,
+        }
+        self._runtime.save_completed(session_id, snapshot)
+        self._runtime.active_path(session_id).unlink(missing_ok=True)
+        return snapshot
+
+    def submit_department_reply_audio(
+        self,
+        session_id: str,
+        audio_file: str | Path,
+    ) -> dict[str, object]:
+        transcription = self._transcription_service.transcribe_file(audio_file)
+        result = self.submit_department_reply_text(session_id, transcription.text)
+
+        completed = dict(result)
+        completed["department_reply_audio"] = {
+            "audio_file": str(audio_file),
+            "transcript": transcription.text,
+            "transcription_backend": transcription.backend,
+            "source_path": transcription.source_path,
+        }
+        self._runtime.save_completed(session_id, completed)
+        return completed

@@ -46,3 +46,5 @@
 - [x] Agregar manejo de sesion saliente en memoria para que `MatIA` pueda iniciar y cerrar la llamada al departamento
 - [x] Agregar un servicio persistente de `MatIA` con snapshots `active/completed` para la llamada al departamento
 - [x] Agregar una cola `queued` y un `run-once` del host persistente de `MatIA`
+- [x] Agregar traduccion de respuesta humana del departamento hacia `approved`, `denied` o `no_response`
+- [x] Agregar entrada por audio transcrito para la respuesta del departamento
