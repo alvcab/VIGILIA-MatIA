@@ -138,6 +138,14 @@ El sistema DEBE abrir el porton solo cuando la capa de decision devuelve un toke
 - ENTONCES el sistema abre de inmediato
 - Y termina la llamada sin exigir frase adicional
 
+#### Escenario: Match facial confiable sin residente resoluble
+
+- DADO que la metadata del reconocimiento facial marca un `face_match_trusted`
+- Y el `resident_id` o nombre entregado no resuelve a un residente conocido del directorio
+- CUANDO el flujo hibrido evalua la llamada
+- ENTONCES el sistema no abre el porton
+- Y degrada el resultado facial a no-match
+
 #### Escenario: Continuacion al flujo de voz cuando no hay match facial confiable
 
 - DADO que entra una llamada del VTO
@@ -214,6 +222,21 @@ El sistema DEBE abrir el porton solo cuando la capa de decision devuelve un toke
 - CUANDO la voz contiene una solicitud clara de apertura
 - ENTONCES el sistema puede permitir abrir como residente conocido en banda extendida
 
+#### Escenario: Aprobacion de departamento fuera de contexto
+
+- DADO que llega una respuesta de departamento con estado `approved`, `denied` o `no_response`
+- Y la sesion no estaba esperando una autorizacion de departamento
+- CUANDO el watcher procesa esa respuesta
+- ENTONCES el sistema la trata como invalida
+- Y no abre el porton
+
+#### Escenario: Estado de autorizacion de departamento invalido
+
+- DADO que llega una respuesta de departamento con un estado fuera del contrato esperado
+- CUANDO el watcher procesa esa respuesta
+- ENTONCES el sistema la trata como invalida
+- Y no abre el porton
+
 ### Requisito: Entregar retroalimentacion al visitante
 
 El sistema DEBE proporcionar retroalimentacion audible o textual que describa el resultado de la solicitud de acceso.
@@ -238,6 +261,13 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - CUANDO el sistema atiende una llamada real del VTO
 - ENTONCES el flujo puede omitir el saludo y tono del PBX antes de grabar
 - Y prioriza una ventana de escucha mas inmediata y mas larga para captar la voz del visitante
+
+#### Escenario: Respuesta hablada ambigua del departamento
+
+- DADO que la transcripcion del departamento contiene palabras parciales que incluyen tokens de aprobacion o rechazo
+- CUANDO el sistema interpreta esa respuesta
+- ENTONCES solo considera marcadores completos y contiguos
+- Y no promueve coincidencias parciales accidentales a una autorizacion valida
 
 #### Escenario: Respuesta hablada local cuando el VTO no sirve como retorno
 
@@ -272,6 +302,27 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - ENTONCES el sistema puede usar un modelo local para redactar una frase breve en espanol
 - Y esa respuesta no altera la decision de apertura
 
+#### Escenario: Respuesta hablada breve y apta para TTS
+
+- DADO que el sistema ya decidio no abrir o necesita aclaracion
+- CUANDO genera una respuesta hablada con apoyo del modelo
+- ENTONCES la respuesta final debe ser breve, clara y apta para TTS
+- Y no debe incluir explicaciones internas ni eco del prompt
+
+#### Escenario: Tono ajustado al tipo de visita
+
+- DADO que el sistema necesita hablar con una visita
+- CUANDO genera una respuesta para saludo, entrega, autorizacion, urgencia o confirmacion con residente
+- ENTONCES el tono de la respuesta se ajusta al momento conversacional
+- Y mantiene frases breves y respetuosas
+
+#### Escenario: Referencia contextual conocida en la respuesta
+
+- DADO que el flujo ya resolvio un residente o departamento candidato
+- CUANDO el sistema genera una aclaracion o una confirmacion hablada
+- ENTONCES la respuesta puede nombrar esa referencia conocida de forma natural
+- Y evita pedir contexto como si no existiera
+
 #### Escenario: Repartidor o paquete sin autorizacion de apertura
 
 - DADO que el visitante indica que viene a dejar un paquete o encargo
@@ -287,6 +338,13 @@ El sistema DEBE proporcionar retroalimentacion audible o textual que describa el
 - CUANDO el flujo necesita hablarle al visitante
 - ENTONCES el sistema usa una respuesta fija de respaldo
 - Y mantiene la misma decision de acceso ya tomada
+
+#### Escenario: Salida generada invalida
+
+- DADO que el backend de modelo devuelve una respuesta vacia, verbosa o fuera de contrato
+- CUANDO el flujo necesita hablarle al visitante
+- ENTONCES el sistema usa una respuesta fija de respaldo
+- Y mantiene la misma decision de acceso
 
 #### Escenario: Reproduccion local de la respuesta en el host
 

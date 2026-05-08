@@ -57,7 +57,11 @@ class AudioFileFlowTests(unittest.TestCase):
             wav_path = Path(tmpdir) / "sample.wav"
             wav_path.write_bytes(b"RIFFfakeWAVE")
 
-            result = AudioFileFlow().run(
+            flow = AudioFileFlow(
+                resident_directory=ResidentDirectory.from_yaml_like_file("config/residents.example.yaml")
+            )
+
+            result = flow.run(
                 caller_id="gds-front-door",
                 audio_file=str(wav_path),
                 session_id="face-demo-1",

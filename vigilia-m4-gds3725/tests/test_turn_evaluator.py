@@ -91,6 +91,28 @@ class TurnEvaluatorTests(unittest.TestCase):
         self.assertEqual(result["session_memory"]["face_recognition_result"], "trusted_match")
         self.assertEqual(result["spoken_response"], "")
 
+    def test_unknown_trusted_face_match_does_not_open(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            evaluator = TurnEvaluator(
+                resident_directory=self.directory,
+                conversation_store=ConversationStore(tmpdir),
+            )
+            result = evaluator.evaluate_turn(
+                TurnInput(
+                    session_id="demo-face-unknown",
+                    caller_id="front-door",
+                    transcript="",
+                    face_match_resident_id="desconocido",
+                    face_match_display_name="Persona Desconocida",
+                    face_match_confidence="high",
+                    face_match_trusted=True,
+                )
+            )
+
+        self.assertNotEqual(result["decision"]["action"], "open")
+        self.assertFalse(result["gate_action"]["would_open"])
+        self.assertEqual(result["session_memory"]["face_recognition_result"], "no_match")
+
     def test_no_face_match_prompts_for_resident_with_clearer_response(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             evaluator = TurnEvaluator(
@@ -114,7 +136,7 @@ class TurnEvaluatorTests(unittest.TestCase):
         )
         self.assertEqual(
             result["model_guidance"]["generated_text"],
-            "No reconozco tu rostro. Indica a que residente o departamento vienes.",
+            "No reconozco tu rostro. Dime a que residente o departamento vienes.",
         )
         self.assertEqual(result["session_memory"]["face_recognition_result"], "no_match")
 
@@ -220,6 +242,25 @@ class TurnEvaluatorTests(unittest.TestCase):
         self.assertEqual(result["decision"]["reason"], "department_authorized_access")
         self.assertTrue(result["gate_action"]["would_open"])
         self.assertEqual(result["spoken_response"], "Abriendo.")
+
+    def test_department_approval_without_pending_request_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            evaluator = TurnEvaluator(
+                resident_directory=self.directory,
+                conversation_store=ConversationStore(tmpdir),
+            )
+            result = evaluator.evaluate_turn(
+                TurnInput(
+                    session_id="demo-dept-unexpected",
+                    caller_id="front-door",
+                    transcript="",
+                    department_authorization_status="approved",
+                )
+            )
+
+        self.assertEqual(result["decision"]["action"], "deny_access")
+        self.assertEqual(result["decision"]["reason"], "unexpected_department_authorization")
+        self.assertFalse(result["gate_action"]["would_open"])
 
     def test_department_denial_rejects_access(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

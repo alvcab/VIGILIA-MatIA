@@ -341,6 +341,40 @@ class BaresipPipelineTests(unittest.TestCase):
             self.assertEqual(result["mode"], "department-watch-once")
         self.assertEqual(result["processed_count"], 1)
         self.assertEqual(result["processed"][0]["decision_action"], "open")
+        self.assertFalse(result["processed"][0]["ignored"])
+
+    def test_process_department_responses_once_rejects_orphan_response_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+
+            response_path = workdir / "department_authorization" / "responses" / "orphan.response.json"
+            response_path.parent.mkdir(parents=True, exist_ok=True)
+            response_path.write_text(
+                '{\n'
+                '  "session_id": "orphan",\n'
+                '  "caller_id": "front-door",\n'
+                '  "department_authorization": {"status": "approved"}\n'
+                '}\n',
+                encoding="utf-8",
+            )
+
+            result = pipeline.process_department_responses_once()
+
+        self.assertEqual(result["processed_count"], 1)
+        self.assertEqual(result["processed"][0]["decision_action"], "deny_access")
+        self.assertEqual(result["processed"][0]["decision_reason"], "unexpected_department_authorization")
+        self.assertTrue(result["processed"][0]["ignored"])
 
     def test_preview_department_call_run_returns_dry_run_execution(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

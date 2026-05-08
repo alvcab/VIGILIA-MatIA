@@ -104,7 +104,8 @@ class DecisionPolicyTests(unittest.TestCase):
         decision = decide_from_text("hola")
         self.assertTrue(decision.follow_up_prompt)
         self.assertEqual(decision.next_step, "clarify_resident")
-        self.assertEqual(decision.follow_up_prompt, "Solicita de forma breve a que residente o departamento viene.")
+        self.assertIn("tono de recepcion breve", decision.follow_up_prompt)
+        self.assertIn("Solicita de forma breve a que residente o departamento viene.", decision.follow_up_prompt)
 
     def test_authorization_claim_without_resident_requests_specific_clarification(self) -> None:
         decision = decide_from_text("me estan esperando")

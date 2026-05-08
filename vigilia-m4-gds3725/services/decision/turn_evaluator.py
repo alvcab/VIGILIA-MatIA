@@ -8,7 +8,7 @@ from services.decision.conversation_store import ConversationStore
 from services.decision.hybrid import evaluate_hybrid_decision
 from services.decision.intent import extract_authorization_code, extract_intent
 from services.decision.policy import Decision
-from services.decision.resident_directory import ResidentDirectory
+from services.decision.resident_directory import Resident, ResidentDirectory
 from services.tts.canned_audio import build_spoken_response
 
 
@@ -132,12 +132,25 @@ class TurnEvaluator:
                     return resident.unit
         return fallback
 
+    def _resolve_face_match_resident(self, turn_input: TurnInput) -> Resident | None:
+        if self._resident_directory is None:
+            return None
+        if turn_input.face_match_resident_id:
+            resident = self._resident_directory.get_by_id(turn_input.face_match_resident_id)
+            if resident is not None:
+                return resident
+        if turn_input.face_match_display_name:
+            return self._resident_directory.resolve(
+                turn_input.face_match_display_name
+            ) or self._resident_directory.resolve_partial(turn_input.face_match_display_name)
+        return None
+
     def _decision_from_face_match(self, turn_input: TurnInput) -> Decision | None:
         if not turn_input.face_match_trusted:
             return None
 
-        resident_hint = turn_input.face_match_display_name or turn_input.face_match_resident_id
-        if not resident_hint:
+        resident = self._resolve_face_match_resident(turn_input)
+        if resident is None:
             return None
 
         return Decision(
@@ -145,11 +158,8 @@ class TurnEvaluator:
             should_open=True,
             reason="trusted_face_match",
             confidence=turn_input.face_match_confidence or "high",
-            resident_hint=resident_hint,
-            department_target=self._resolve_department_target(
-                resident_hint=turn_input.face_match_display_name,
-                resident_id=turn_input.face_match_resident_id,
-            ),
+            resident_hint=resident.display_name,
+            department_target=resident.unit,
             visitor_intent="known_resident",
             next_step="complete",
             follow_up_prompt="",
@@ -164,6 +174,30 @@ class TurnEvaluator:
         status = turn_input.department_authorization_status.strip().lower()
         if not status:
             return None
+
+        if status not in {"approved", "denied", "no_response"}:
+            return Decision(
+                action="deny_access",
+                should_open=False,
+                reason="invalid_department_authorization_status",
+                confidence="high",
+                resident_hint=previous_memory.resident_candidate,
+                department_target=previous_memory.department_target or previous_memory.unit_candidate,
+                visitor_intent=previous_memory.current_intent,
+                next_step="complete",
+            )
+
+        if not previous_memory.waiting_for_department_response:
+            return Decision(
+                action="deny_access",
+                should_open=False,
+                reason="unexpected_department_authorization",
+                confidence="high",
+                resident_hint=previous_memory.resident_candidate,
+                department_target=previous_memory.department_target or previous_memory.unit_candidate,
+                visitor_intent=previous_memory.current_intent,
+                next_step="complete",
+            )
 
         resident_hint = previous_memory.resident_candidate
         department_target = previous_memory.department_target or previous_memory.unit_candidate
@@ -258,9 +292,9 @@ class TurnEvaluator:
         )
 
     def _face_recognition_result(self, turn_input: TurnInput) -> str:
-        if turn_input.face_match_trusted:
+        if turn_input.face_match_trusted and self._resolve_face_match_resident(turn_input) is not None:
             return "trusted_match"
-        if turn_input.face_check_performed:
+        if turn_input.face_check_performed or turn_input.face_match_trusted:
             return "no_match"
         return ""
 

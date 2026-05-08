@@ -264,6 +264,27 @@ class MatiaCallServiceTests(unittest.TestCase):
             "deny_access",
         )
 
+    def test_interpret_department_reply_does_not_match_partial_words_as_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "baresip"
+            config = BaresipConfig(
+                binary="baresip",
+                config_path=str(workdir / "config"),
+                accounts_path=str(workdir / "accounts"),
+                audio_path=str(workdir / "audio"),
+                workdir=str(workdir),
+            )
+            pipeline = BaresipPipeline(
+                resident_directory=self.directory,
+                baresip_config=config,
+            )
+            runtime = MatiaCallServiceRuntime.from_workdir(workdir)
+            service = MatiaDepartmentCallService(pipeline, runtime)
+
+            interpretation = service.interpret_department_reply("visita alvaro")
+
+        self.assertEqual(interpretation["status"], "unknown")
+
     def test_process_reply_audio_once_consumes_inbox_and_archives_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "baresip"

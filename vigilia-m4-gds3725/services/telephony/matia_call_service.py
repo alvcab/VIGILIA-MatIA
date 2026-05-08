@@ -1,13 +1,32 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from services.transcription.service import TranscriptionService
 from services.telephony.baresip_pipeline import BaresipPipeline
+
+
+def _normalize_reply_text(text: str) -> str:
+    lowered = " ".join(text.strip().lower().split())
+    normalized = unicodedata.normalize("NFKD", lowered)
+    ascii_text = "".join(char for char in normalized if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", " ", ascii_text).strip()
+
+
+def _contains_token_phrase(tokens: list[str], phrase: str) -> bool:
+    phrase_tokens = phrase.split()
+    if not phrase_tokens or len(phrase_tokens) > len(tokens):
+        return False
+    for index in range(len(tokens) - len(phrase_tokens) + 1):
+        if tokens[index : index + len(phrase_tokens)] == phrase_tokens:
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -218,13 +237,14 @@ class MatiaDepartmentCallService:
         return self._runtime.load_status(session_id)
 
     def interpret_department_reply(self, transcript: str) -> dict[str, str]:
-        normalized = " ".join(transcript.strip().lower().split())
+        normalized = _normalize_reply_text(transcript)
         if not normalized:
             return {"status": "no_response", "reason": "empty_reply"}
 
+        tokens = normalized.split()
+
         approved_markers = (
             "si",
-            "sí",
             "autorizo",
             "autorizado",
             "puede pasar",
@@ -242,9 +262,9 @@ class MatiaDepartmentCallService:
             "denegado",
         )
 
-        if any(marker in normalized for marker in denied_markers):
+        if any(_contains_token_phrase(tokens, marker) for marker in denied_markers):
             return {"status": "denied", "reason": "matched_denial_marker"}
-        if any(marker in normalized for marker in approved_markers):
+        if any(_contains_token_phrase(tokens, marker) for marker in approved_markers):
             return {"status": "approved", "reason": "matched_approval_marker"}
         return {"status": "unknown", "reason": "no_status_marker_detected"}
 

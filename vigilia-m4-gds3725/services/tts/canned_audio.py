@@ -6,7 +6,12 @@ from services.decision.policy import Decision
 def build_spoken_response(decision: Decision) -> str:
     if decision.reason == "trusted_face_match":
         return ""
-    if decision.reason in {"department_denied_access", "registered_visit_code_invalid"}:
+    if decision.reason in {
+        "department_denied_access",
+        "registered_visit_code_invalid",
+        "unexpected_department_authorization",
+        "invalid_department_authorization_status",
+    }:
         return "Lo siento, no esta autorizado."
     if decision.reason == "department_no_response":
         return f"No tengo respuesta del {decision.department_target.lower()}."

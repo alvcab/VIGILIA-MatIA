@@ -1,14 +1,10 @@
-# Especificacion de intercom-routing
+# Delta de intercom-routing
 
-## Proposito
-
-Describir el comportamiento actual de telefonia y enrutamiento del citofono para el stack vigente basado en `GDS3725`, `baresip`, `MatIA` y VIGILIA.
-
-## Requisitos
+## Requisitos Modificados
 
 ### Requisito: Aceptar trafico SIP del dispositivo de citofonia configurado
 
-El sistema DEBE aceptar trafico SIP proveniente del intercom configurado mediante un adaptador ligero de telefonia, sin requerir Asterisk como capa principal de control.
+- El sistema DEBE aceptar trafico SIP del intercom configurado mediante un adaptador ligero de telefonia, sin requerir Asterisk como control principal.
 
 #### Escenario: Endpoint SIP del intercom configurado
 
@@ -16,9 +12,9 @@ El sistema DEBE aceptar trafico SIP proveniente del intercom configurado mediant
 - CUANDO el adaptador SIP recibe la llamada entrante
 - ENTONCES la sesion queda disponible para el pipeline de VIGILIA
 
-### Requisito: Enrutar llamadas del intercom al pipeline conversacional
+### Requisito: Enrutar llamadas del VTO al pipeline conversacional
 
-El sistema DEBE enrutar las llamadas entrantes a un contrato de runtime consumible por `MatIA` y VIGILIA.
+- El sistema DEBE enrutar las llamadas entrantes a un contrato de runtime consumible por `MatIA` y VIGILIA.
 
 #### Escenario: Audio entrante depositado en inbox
 
@@ -29,7 +25,7 @@ El sistema DEBE enrutar las llamadas entrantes a un contrato de runtime consumib
 
 ### Requisito: Mantener el contrato de autorizacion de departamento por sesion
 
-El sistema DEBE enrutar las solicitudes y respuestas de autorizacion de departamento como artefactos de runtime por `session_id`.
+- El sistema DEBE enrutar las solicitudes de autorizacion de departamento como artefactos de runtime por `session_id`.
 
 #### Escenario: VIGILIA solicita contacto con departamento
 

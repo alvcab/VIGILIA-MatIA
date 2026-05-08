@@ -232,16 +232,47 @@ class BaresipPipeline:
 
             session_id = str(payload.get("session_id", ""))
             caller_id = str(payload.get("caller_id", "department-authorization"))
-            result = evaluator.evaluate_turn(
-                TurnInput(
-                    session_id=session_id,
-                    caller_id=caller_id,
-                    transcript="",
-                    device_label=str(payload.get("device_label", "gds3725")),
-                    transport=str(payload.get("transport", "sip-udp")),
-                    department_authorization_status=status,
+
+            previous_state = self._conversation_store.load(session_id)
+            if status not in {"approved", "denied", "no_response"}:
+                result = {
+                    "mode": "department-watch-once",
+                    "session": {
+                        "session_id": session_id,
+                        "caller_id": caller_id,
+                    },
+                    "decision": {
+                        "action": "deny_access",
+                        "should_open": False,
+                        "reason": "invalid_department_authorization_status",
+                    },
+                    "ignored": True,
+                }
+            elif not previous_state.memory.waiting_for_department_response:
+                result = {
+                    "mode": "department-watch-once",
+                    "session": {
+                        "session_id": session_id,
+                        "caller_id": caller_id,
+                    },
+                    "decision": {
+                        "action": "deny_access",
+                        "should_open": False,
+                        "reason": "unexpected_department_authorization",
+                    },
+                    "ignored": True,
+                }
+            else:
+                result = evaluator.evaluate_turn(
+                    TurnInput(
+                        session_id=session_id,
+                        caller_id=caller_id,
+                        transcript="",
+                        device_label=str(payload.get("device_label", "gds3725")),
+                        transport=str(payload.get("transport", "sip-udp")),
+                        department_authorization_status=status,
+                    )
                 )
-            )
             processed_path = self._department_authorization.mark_response_processed(
                 response_path,
                 payload,
@@ -253,6 +284,8 @@ class BaresipPipeline:
                     "caller_id": caller_id,
                     "status": status,
                     "decision_action": result["decision"]["action"],
+                    "decision_reason": result["decision"]["reason"],
+                    "ignored": bool(result.get("ignored", False)),
                     "result_path": str(processed_path),
                 }
             )

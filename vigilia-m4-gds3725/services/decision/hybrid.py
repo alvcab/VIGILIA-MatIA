@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from services.decision.model_backend import DecisionModelBackend, build_model_backend
+from services.decision.model_backend import (
+    DecisionModelBackend,
+    build_model_backend,
+    sanitize_follow_up_response,
+)
 from services.decision.policy import Decision, decide_from_text
 from services.decision.resident_directory import ResidentDirectory
+from services.tts.canned_audio import build_spoken_response
 
 
 def evaluate_hybrid_decision(
@@ -40,13 +45,19 @@ def evaluate_hybrid_decision(
 
     if decision.follow_up_prompt:
         generated = resolved_backend.generate_follow_up(decision.follow_up_prompt)
+        fallback_text = build_spoken_response(decision)
+        sanitized_text = sanitize_follow_up_response(
+            generated.generated_text,
+            prompt=decision.follow_up_prompt,
+            fallback_text=fallback_text,
+        )
         result["model_guidance"] = {
             "enabled": True,
             "prompt": decision.follow_up_prompt,
             "next_step": decision.next_step,
             "turn_index": decision.turn_index,
             "backend": generated.backend,
-            "generated_text": generated.generated_text,
+            "generated_text": sanitized_text,
         }
     else:
         result["model_guidance"] = {
