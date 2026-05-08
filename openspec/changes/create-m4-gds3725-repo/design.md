@@ -280,6 +280,17 @@ Restriccion importante:
 De esa forma, una respuesta tardia o huerfana no reabre una sesion ya cerrada ni
 altera el resultado final de una autorizacion previa.
 
+Ademas, cada llamada saliente al departamento publica desde el comienzo un
+contrato de captura:
+
+- `reply_audio_capture.audio_file`
+- `reply_audio_capture.metadata_file`
+
+Ese contrato vive tanto en el plan de llamada como en la sesion activa de `MatIA`.
+La idea es que el hook real de `baresip` no tenga que inferir nombres de archivo:
+solo debe depositar el audio de respuesta exactamente en la ruta publicada por la
+sesion viva.
+
 Ademas del preview del `invite`, el contrato agrega un preview operativo para el
 proceso `baresip`:
 

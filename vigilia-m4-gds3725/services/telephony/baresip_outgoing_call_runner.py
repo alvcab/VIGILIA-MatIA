@@ -65,6 +65,8 @@ class BaresipOutgoingCallSession:
     session_id: str
     startup_command: list[str]
     target_uri: str
+    reply_audio_path: str
+    reply_audio_metadata_path: str
     dry_run: bool
     process: BaresipProcessLike | None = None
     sent_commands: list[str] = field(default_factory=list)
@@ -75,6 +77,10 @@ class BaresipOutgoingCallSession:
             "session_id": self.session_id,
             "startup_command": list(self.startup_command),
             "target_uri": self.target_uri,
+            "reply_audio_capture": {
+                "audio_file": self.reply_audio_path,
+                "metadata_file": self.reply_audio_metadata_path,
+            },
             "dry_run": self.dry_run,
             "started": self.started,
             "sent_commands": list(self.sent_commands),
@@ -131,11 +137,14 @@ class BaresipOutgoingCallRunner:
         startup_command = [str(part) for part in execution_preview.get("startup_command", [])]
         target_uri = str(execution_preview.get("target_uri", ""))
         dial_command = str(execution_preview.get("dial_command", ""))
+        reply_audio_capture = dict(execution_preview.get("reply_audio_capture", {}))
 
         session = BaresipOutgoingCallSession(
             session_id=session_id,
             startup_command=startup_command,
             target_uri=target_uri,
+            reply_audio_path=str(reply_audio_capture.get("audio_file", "")),
+            reply_audio_metadata_path=str(reply_audio_capture.get("metadata_file", "")),
             dry_run=dry_run,
         )
 

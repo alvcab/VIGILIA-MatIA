@@ -51,6 +51,10 @@ class MatiaCallServiceTests(unittest.TestCase):
 
         self.assertEqual(started["state"], "active")
         self.assertEqual(active_status["state"], "active")
+        self.assertEqual(
+            active_status["reply_audio_capture"]["audio_file"],
+            str(workdir / "matia_call_service" / "reply_audio_inbox" / "matia-call-1.wav"),
+        )
         self.assertEqual(finished["state"], "completed")
         self.assertEqual(completed_status["state"], "completed")
         self.assertEqual(

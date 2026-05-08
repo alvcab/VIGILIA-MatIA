@@ -74,6 +74,10 @@ class BaresipOutgoingCallRunnerTests(unittest.TestCase):
             {
                 "startup_command": ["baresip", "-f", "runtime/baresip/config"],
                 "target_uri": "sip:depto1@192.168.100.71:5060;transport=udp",
+                "reply_audio_capture": {
+                    "audio_file": "runtime/baresip/matia_call_service/reply_audio_inbox/session-1.wav",
+                    "metadata_file": "runtime/baresip/matia_call_service/reply_audio_inbox/session-1.json",
+                },
                 "dial_command": "/dial sip:depto1@192.168.100.71:5060;transport=udp",
             },
             dry_run=True,
@@ -82,6 +86,10 @@ class BaresipOutgoingCallRunnerTests(unittest.TestCase):
         finished = runner.finish_session("session-1").as_dict()
 
         self.assertTrue(started.started)
+        self.assertEqual(
+            started.reply_audio_path,
+            "runtime/baresip/matia_call_service/reply_audio_inbox/session-1.wav",
+        )
         self.assertEqual(commands_after_start, ["/dial sip:depto1@192.168.100.71:5060;transport=udp"])
         self.assertEqual(finished["mode"], "dry-run-session")
         self.assertEqual(
@@ -104,6 +112,10 @@ class BaresipOutgoingCallRunnerTests(unittest.TestCase):
             {
                 "startup_command": ["baresip", "-f", "runtime/baresip/config"],
                 "target_uri": "sip:depto1@192.168.100.71:5060;transport=udp",
+                "reply_audio_capture": {
+                    "audio_file": "runtime/baresip/matia_call_service/reply_audio_inbox/session-2.wav",
+                    "metadata_file": "runtime/baresip/matia_call_service/reply_audio_inbox/session-2.json",
+                },
                 "dial_command": "/dial sip:depto1@192.168.100.71:5060;transport=udp",
             },
             dry_run=False,
@@ -111,6 +123,10 @@ class BaresipOutgoingCallRunnerTests(unittest.TestCase):
         finished = runner.finish_session("session-2").as_dict()
 
         self.assertTrue(started.started)
+        self.assertEqual(
+            started.reply_audio_metadata_path,
+            "runtime/baresip/matia_call_service/reply_audio_inbox/session-2.json",
+        )
         self.assertEqual(
             captured["process"]._writes,  # type: ignore[attr-defined]
             [

@@ -113,8 +113,9 @@
 1. `MatIA` construye el plan de llamada al departamento
 2. inicia una sesion saliente en memoria del proceso
 3. `baresip` recibe `dial` al comienzo de la sesion
-4. `MatIA` conserva la sesion viva mientras espera la respuesta humana
-5. al terminar, `MatIA` cierra la sesion con `hangup` y `quit`
+4. el plan publica `reply_audio_capture.audio_file` y `reply_audio_capture.metadata_file`
+5. `MatIA` conserva la sesion viva mientras espera la respuesta humana
+6. al terminar, `MatIA` cierra la sesion con `hangup` y `quit`
 
 ## matia call service persistente
 

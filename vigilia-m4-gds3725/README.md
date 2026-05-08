@@ -181,6 +181,7 @@ Con eso `MatIA` sabe:
 - con que perfil de voz decirlo
 - y a que URI SIP del departamento deberia llamar `baresip`
 - y como deberia arrancar `baresip` y pasarle la secuencia `dial/hangup/quit`
+- y en que ruta exacta debe caer el audio de respuesta del departamento
 
 Ademas, el repo ya deja un runner Python en `dry-run` para esa llamada saliente:
 
@@ -237,6 +238,14 @@ La convencion actual es:
 - `reply_audio_inbox/<session_id>.wav`
 - opcional `reply_audio_inbox/<session_id>.txt`
 - opcional `reply_audio_inbox/<session_id>.json`
+
+Cada llamada saliente al departamento ya publica este contrato desde el inicio en:
+
+- `reply_audio_capture.audio_file`
+- `reply_audio_capture.metadata_file`
+
+Eso permite que el hook vivo de `baresip` deposite la respuesta en la ruta correcta
+sin tener que adivinar nombres ni estado de sesion.
 
 El watcher solo procesa audios cuya sesion siga `active`, para no mezclar respuestas
 viejas o huerfanas con una llamada ya cerrada.

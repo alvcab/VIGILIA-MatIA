@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from services.decision.resident_directory import ResidentDirectory
 from services.telephony.baresip_config import BaresipConfig
@@ -18,6 +19,7 @@ class DepartmentCallExecutionPlan:
     department_target: str
     target_uri: str
     local_uri: str
+    reply_audio_capture: dict[str, object]
     invite_preview: dict[str, object]
     baresip_execution_preview: dict[str, object]
     voice_plan: dict[str, object]
@@ -32,6 +34,7 @@ class DepartmentCallExecutionPlan:
             "department_target": self.department_target,
             "target_uri": self.target_uri,
             "local_uri": self.local_uri,
+            "reply_audio_capture": dict(self.reply_audio_capture),
             "invite_preview": self.invite_preview,
             "baresip_execution_preview": self.baresip_execution_preview,
             "voice_plan": self.voice_plan,
@@ -79,6 +82,18 @@ class DepartmentCallService:
             return ""
         return resident.department_sip_uri
 
+    def _build_reply_audio_capture(self, session_id: str, target_uri: str) -> dict[str, object]:
+        workdir = Path(self._baresip_config.workdir)
+        root = workdir / "matia_call_service" / "reply_audio_inbox"
+        audio_file = root / f"{session_id}.wav"
+        metadata_file = root / f"{session_id}.json"
+        return {
+            "audio_file": str(audio_file),
+            "metadata_file": str(metadata_file),
+            "transport_contract": "baresip-live-reply-audio",
+            "target_uri": target_uri,
+        }
+
     def build_execution_plan(
         self,
         request_payload: dict[str, object],
@@ -87,6 +102,10 @@ class DepartmentCallService:
         resident_candidate = str(request_payload.get("resident_candidate", ""))
         department_target = str(request_payload.get("department_target", ""))
         target_uri = self._resolve_target_uri(resident_candidate, department_target)
+        reply_audio_capture = self._build_reply_audio_capture(
+            str(request_payload.get("session_id", "")),
+            target_uri,
+        )
         local_uri = build_sip_uri(
             user=self._sip_config.local_user,
             domain=self._sip_config.local_domain,
@@ -98,13 +117,18 @@ class DepartmentCallService:
             from_uri=local_uri,
             to_uri=target_uri,
         )
-        execution_preview = self._outgoing_executor.build_execution(target_uri).as_dict()
+        execution_preview = self._outgoing_executor.build_execution(
+            target_uri,
+            reply_audio_path=str(reply_audio_capture["audio_file"]),
+            reply_audio_metadata_path=str(reply_audio_capture["metadata_file"]),
+        ).as_dict()
         return DepartmentCallExecutionPlan(
             session_id=str(request_payload.get("session_id", "")),
             resident_candidate=resident_candidate,
             department_target=department_target,
             target_uri=target_uri,
             local_uri=local_uri,
+            reply_audio_capture=reply_audio_capture,
             invite_preview=invite_preview,
             baresip_execution_preview=execution_preview,
             voice_plan=dict(call_plan.get("voice_plan", {})),
@@ -129,6 +153,7 @@ class DepartmentCallService:
             "session_id": execution_plan.session_id,
             "department_target": execution_plan.department_target,
             "target_uri": execution_plan.target_uri,
+            "reply_audio_capture": execution_plan.reply_audio_capture,
             "run_result": run_result.as_dict(),
         }
 
@@ -147,6 +172,7 @@ class DepartmentCallService:
             "session_id": execution_plan.session_id,
             "department_target": execution_plan.department_target,
             "target_uri": execution_plan.target_uri,
+            "reply_audio_capture": execution_plan.reply_audio_capture,
             "call_session": session.as_dict(),
         }
 

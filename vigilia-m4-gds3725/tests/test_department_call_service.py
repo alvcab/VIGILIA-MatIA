@@ -48,6 +48,18 @@ class DepartmentCallServiceTests(unittest.TestCase):
         self.assertEqual(plan["invite_preview"]["to_uri"], plan["target_uri"])
         self.assertEqual(plan["baresip_execution_preview"]["target_uri"], plan["target_uri"])
         self.assertEqual(
+            plan["reply_audio_capture"]["audio_file"],
+            "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-1.wav",
+        )
+        self.assertEqual(
+            plan["reply_audio_capture"]["metadata_file"],
+            "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-1.json",
+        )
+        self.assertEqual(
+            plan["baresip_execution_preview"]["reply_audio_capture"]["audio_file"],
+            plan["reply_audio_capture"]["audio_file"],
+        )
+        self.assertEqual(
             plan["baresip_execution_preview"]["startup_command"],
             ["baresip", "-f", "runtime/baresip/config"],
         )
@@ -92,6 +104,10 @@ class DepartmentCallServiceTests(unittest.TestCase):
         result = service.run_execution_plan(execution_plan, dry_run=True)
 
         self.assertEqual(result["session_id"], "dept-call-2")
+        self.assertEqual(
+            result["reply_audio_capture"]["audio_file"],
+            "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-2.wav",
+        )
         self.assertEqual(result["run_result"]["mode"], "dry-run")
         self.assertFalse(result["run_result"]["started"])
 
@@ -132,6 +148,14 @@ class DepartmentCallServiceTests(unittest.TestCase):
         finished = service.finish_execution_session("dept-call-3")
 
         self.assertEqual(started["call_session"]["session_id"], "dept-call-3")
+        self.assertEqual(
+            started["reply_audio_capture"]["audio_file"],
+            "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-3.wav",
+        )
+        self.assertEqual(
+            started["call_session"]["reply_audio_capture"]["audio_file"],
+            "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-3.wav",
+        )
         self.assertTrue(started["call_session"]["started"])
         self.assertEqual(finished["run_result"]["mode"], "dry-run-session")
 

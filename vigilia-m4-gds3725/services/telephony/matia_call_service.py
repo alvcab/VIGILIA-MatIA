@@ -52,6 +52,9 @@ class MatiaCallServiceRuntime:
     def reply_audio_inbox_path(self, session_id: str, suffix: str = ".wav") -> Path:
         return self.reply_audio_inbox_root / f"{session_id}{suffix}"
 
+    def reply_audio_metadata_inbox_path(self, session_id: str) -> Path:
+        return self.reply_audio_inbox_root / f"{session_id}.json"
+
     def reply_audio_result_path(self, session_id: str) -> Path:
         return self.reply_audio_processed_root / f"{session_id}.reply-audio.result.json"
 
@@ -130,6 +133,7 @@ class MatiaDepartmentCallService:
             "state": "active",
             "dry_run": dry_run,
             "start_result": result,
+            "reply_audio_capture": result.get("reply_audio_capture", {}),
         }
         self._runtime.save_active(session_id, snapshot)
         return snapshot
