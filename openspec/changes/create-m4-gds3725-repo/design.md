@@ -301,6 +301,18 @@ Para eso el scaffold agrega tambien una operacion de deposito explicita:
 Con esto, el hook vivo de `baresip` puede mantenerse extremadamente simple:
 solo necesita capturar el audio y delegar el deposito al host persistente de `MatIA`.
 
+Ademas, cada llamada saliente publica un bloque `reply_audio_hook` con:
+
+- ruta temporal sugerida para capturar el WAV
+- comando de deposito
+- comando posterior para correr el watcher
+
+Eso fija el lifecycle exacto del integrador:
+
+1. capturar en `capture_temp_audio_file`
+2. ejecutar `deposit_command`
+3. ejecutar `watch_command`
+
 Ademas del preview del `invite`, el contrato agrega un preview operativo para el
 proceso `baresip`:
 

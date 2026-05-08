@@ -12,6 +12,7 @@ class BaresipOutgoingCallExecution:
     target_uri: str
     reply_audio_path: str
     reply_audio_metadata_path: str
+    reply_audio_hook: dict[str, object]
     startup_command: list[str]
     dial_command: str
     hangup_command: str
@@ -26,6 +27,7 @@ class BaresipOutgoingCallExecution:
                 "audio_file": self.reply_audio_path,
                 "metadata_file": self.reply_audio_metadata_path,
             },
+            "reply_audio_hook": dict(self.reply_audio_hook),
             "startup_command": list(self.startup_command),
             "dial_command": self.dial_command,
             "hangup_command": self.hangup_command,
@@ -48,6 +50,7 @@ class BaresipOutgoingCallExecutor:
         *,
         reply_audio_path: str = "",
         reply_audio_metadata_path: str = "",
+        reply_audio_hook: dict[str, object] | None = None,
     ) -> BaresipOutgoingCallExecution:
         normalized_target = target_uri.strip()
         return BaresipOutgoingCallExecution(
@@ -56,6 +59,7 @@ class BaresipOutgoingCallExecutor:
             target_uri=normalized_target,
             reply_audio_path=reply_audio_path,
             reply_audio_metadata_path=reply_audio_metadata_path,
+            reply_audio_hook=dict(reply_audio_hook or {}),
             startup_command=[self._config.binary, "-f", self._config.config_path],
             dial_command=f"/dial {normalized_target}",
             hangup_command="/hangup",

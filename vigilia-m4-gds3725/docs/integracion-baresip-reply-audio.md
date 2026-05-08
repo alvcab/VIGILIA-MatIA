@@ -35,11 +35,35 @@ Ese bloque aparece en:
 - la sesion saliente viva
 - el snapshot `active` del host persistente de `MatIA`
 
+Y ademas un bloque `reply_audio_hook` con:
+
+```json
+{
+  "capture_temp_audio_file": "runtime/baresip/matia_call_service/reply_audio_capture_tmp/matia-call-7.wav",
+  "invoke_moment": "after_call_audio_capture_complete",
+  "deposit_command": [
+    "scripts/deposit_department_reply_audio.sh",
+    "matia-call-7",
+    "runtime/baresip/matia_call_service/reply_audio_capture_tmp/matia-call-7.wav"
+  ],
+  "watch_command": [
+    "python3",
+    "-m",
+    "app.main",
+    "--mode",
+    "department-call-service-reply-audio-watch-once"
+  ]
+}
+```
+
 ## Regla principal
 
 El integrador de `baresip` no debe inventar nombres de archivo.
 
 Debe escribir exactamente en la ruta publicada por `reply_audio_capture.audio_file`.
+
+Si necesita una ruta temporal de captura antes del deposito final, debe usar
+`reply_audio_hook.capture_temp_audio_file`.
 
 ## Metadata recomendada
 
@@ -88,6 +112,14 @@ Esa operacion:
 - copia el audio a esa ruta
 - genera metadata al lado
 - copia tambien un `.txt` sidecar si el WAV origen ya lo trae
+
+## Lifecycle recomendado del hook vivo
+
+1. `MatIA` inicia la llamada saliente y publica `reply_audio_hook`
+2. el integrador de `baresip` captura el audio en `capture_temp_audio_file`
+3. cuando el audio queda completo, ejecuta `deposit_command`
+4. inmediatamente despues ejecuta `watch_command`
+5. `MatIA` traduce la respuesta a `approved`, `denied` o `no_response`
 
 ## Helper shell
 

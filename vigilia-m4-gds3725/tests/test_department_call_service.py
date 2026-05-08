@@ -52,12 +52,34 @@ class DepartmentCallServiceTests(unittest.TestCase):
             "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-1.wav",
         )
         self.assertEqual(
+            plan["reply_audio_hook"]["capture_temp_audio_file"],
+            "runtime/baresip/matia_call_service/reply_audio_capture_tmp/dept-call-1.wav",
+        )
+        self.assertEqual(
+            plan["reply_audio_hook"]["deposit_command"],
+            [
+                "scripts/deposit_department_reply_audio.sh",
+                "dept-call-1",
+                "runtime/baresip/matia_call_service/reply_audio_capture_tmp/dept-call-1.wav",
+            ],
+        )
+        self.assertEqual(
             plan["reply_audio_capture"]["metadata_file"],
             "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-1.json",
         )
         self.assertEqual(
             plan["baresip_execution_preview"]["reply_audio_capture"]["audio_file"],
             plan["reply_audio_capture"]["audio_file"],
+        )
+        self.assertEqual(
+            plan["baresip_execution_preview"]["reply_audio_hook"]["watch_command"],
+            [
+                "python3",
+                "-m",
+                "app.main",
+                "--mode",
+                "department-call-service-reply-audio-watch-once",
+            ],
         )
         self.assertEqual(
             plan["baresip_execution_preview"]["startup_command"],
@@ -108,6 +130,10 @@ class DepartmentCallServiceTests(unittest.TestCase):
             result["reply_audio_capture"]["audio_file"],
             "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-2.wav",
         )
+        self.assertEqual(
+            result["reply_audio_hook"]["capture_temp_audio_file"],
+            "runtime/baresip/matia_call_service/reply_audio_capture_tmp/dept-call-2.wav",
+        )
         self.assertEqual(result["run_result"]["mode"], "dry-run")
         self.assertFalse(result["run_result"]["started"])
 
@@ -151,6 +177,14 @@ class DepartmentCallServiceTests(unittest.TestCase):
         self.assertEqual(
             started["reply_audio_capture"]["audio_file"],
             "runtime/baresip/matia_call_service/reply_audio_inbox/dept-call-3.wav",
+        )
+        self.assertEqual(
+            started["reply_audio_hook"]["deposit_command"],
+            [
+                "scripts/deposit_department_reply_audio.sh",
+                "dept-call-3",
+                "runtime/baresip/matia_call_service/reply_audio_capture_tmp/dept-call-3.wav",
+            ],
         )
         self.assertEqual(
             started["call_session"]["reply_audio_capture"]["audio_file"],

@@ -51,3 +51,4 @@
 - [x] Agregar inbox y watcher de audio para respuestas del departamento con archivado en `processed`
 - [x] Publicar rutas de captura de audio de respuesta en el plan y la sesion saliente del departamento
 - [x] Agregar una operacion de deposito para que el hook vivo de `baresip` copie el WAV a la ruta publicada por la sesion activa
+- [x] Publicar el bloque `reply_audio_hook` con ruta temporal y comandos de deposito/watcher para la llamada saliente

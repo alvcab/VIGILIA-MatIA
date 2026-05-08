@@ -244,6 +244,9 @@ Cada llamada saliente al departamento ya publica este contrato desde el inicio e
 
 - `reply_audio_capture.audio_file`
 - `reply_audio_capture.metadata_file`
+- `reply_audio_hook.capture_temp_audio_file`
+- `reply_audio_hook.deposit_command`
+- `reply_audio_hook.watch_command`
 
 Eso permite que el hook vivo de `baresip` deposite la respuesta en la ruta correcta
 sin tener que adivinar nombres ni estado de sesion.

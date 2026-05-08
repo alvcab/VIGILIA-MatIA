@@ -20,6 +20,7 @@ class DepartmentCallExecutionPlan:
     target_uri: str
     local_uri: str
     reply_audio_capture: dict[str, object]
+    reply_audio_hook: dict[str, object]
     invite_preview: dict[str, object]
     baresip_execution_preview: dict[str, object]
     voice_plan: dict[str, object]
@@ -35,6 +36,7 @@ class DepartmentCallExecutionPlan:
             "target_uri": self.target_uri,
             "local_uri": self.local_uri,
             "reply_audio_capture": dict(self.reply_audio_capture),
+            "reply_audio_hook": dict(self.reply_audio_hook),
             "invite_preview": self.invite_preview,
             "baresip_execution_preview": self.baresip_execution_preview,
             "voice_plan": self.voice_plan,
@@ -94,6 +96,29 @@ class DepartmentCallService:
             "target_uri": target_uri,
         }
 
+    def _build_reply_audio_hook(self, session_id: str) -> dict[str, object]:
+        workdir = Path(self._baresip_config.workdir)
+        repo_root = workdir.parent.parent if workdir.name == "baresip" and workdir.parent.name == "runtime" else Path(".")
+        capture_root = workdir / "matia_call_service" / "reply_audio_capture_tmp"
+        capture_audio_file = capture_root / f"{session_id}.wav"
+        deposit_script = repo_root / "scripts" / "deposit_department_reply_audio.sh"
+        return {
+            "capture_temp_audio_file": str(capture_audio_file),
+            "invoke_moment": "after_call_audio_capture_complete",
+            "deposit_command": [
+                str(deposit_script),
+                session_id,
+                str(capture_audio_file),
+            ],
+            "watch_command": [
+                "python3",
+                "-m",
+                "app.main",
+                "--mode",
+                "department-call-service-reply-audio-watch-once",
+            ],
+        }
+
     def build_execution_plan(
         self,
         request_payload: dict[str, object],
@@ -106,6 +131,7 @@ class DepartmentCallService:
             str(request_payload.get("session_id", "")),
             target_uri,
         )
+        reply_audio_hook = self._build_reply_audio_hook(str(request_payload.get("session_id", "")))
         local_uri = build_sip_uri(
             user=self._sip_config.local_user,
             domain=self._sip_config.local_domain,
@@ -121,6 +147,7 @@ class DepartmentCallService:
             target_uri,
             reply_audio_path=str(reply_audio_capture["audio_file"]),
             reply_audio_metadata_path=str(reply_audio_capture["metadata_file"]),
+            reply_audio_hook=reply_audio_hook,
         ).as_dict()
         return DepartmentCallExecutionPlan(
             session_id=str(request_payload.get("session_id", "")),
@@ -129,6 +156,7 @@ class DepartmentCallService:
             target_uri=target_uri,
             local_uri=local_uri,
             reply_audio_capture=reply_audio_capture,
+            reply_audio_hook=reply_audio_hook,
             invite_preview=invite_preview,
             baresip_execution_preview=execution_preview,
             voice_plan=dict(call_plan.get("voice_plan", {})),
@@ -154,6 +182,7 @@ class DepartmentCallService:
             "department_target": execution_plan.department_target,
             "target_uri": execution_plan.target_uri,
             "reply_audio_capture": execution_plan.reply_audio_capture,
+            "reply_audio_hook": execution_plan.reply_audio_hook,
             "run_result": run_result.as_dict(),
         }
 
@@ -173,6 +202,7 @@ class DepartmentCallService:
             "department_target": execution_plan.department_target,
             "target_uri": execution_plan.target_uri,
             "reply_audio_capture": execution_plan.reply_audio_capture,
+            "reply_audio_hook": execution_plan.reply_audio_hook,
             "call_session": session.as_dict(),
         }
 
