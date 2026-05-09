@@ -30,6 +30,8 @@ class BaresipHelloRuntimeBuilderTests(unittest.TestCase):
         self.assertIn("module_path /tmp/modules", config_text)
         self.assertEqual(result["listen_uri"], "sip:door@192.168.100.234:5060")
         self.assertEqual(result["gds_call_target"], "door@192.168.100.234")
+        self.assertEqual(result["captured_audio_file"], str(config.workdir / "gds-rx.wav"))
+        self.assertEqual(result["process_capture_command"], ["python3", "-m", "app.main", "--mode", "gds-capture-process"])
         self.assertEqual(result["run_command"][0:3], ["baresip", "-s", "-f"])
         self.assertEqual(run.call_count, 2)
 

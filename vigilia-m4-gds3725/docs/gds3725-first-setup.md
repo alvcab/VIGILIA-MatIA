@@ -118,3 +118,21 @@ Resultado esperado:
 - el terminal de `baresip` muestra el `INVITE` entrante
 - `baresip` contesta la llamada automaticamente
 - el parlante del `GDS3725` reproduce el saludo de MatIA
+- el audio recibido desde el microfono del `GDS3725` queda en `runtime/baresip-hello/gds-rx.wav`
+
+Para procesar la captura en modo seguro:
+
+```bash
+python3 -m app.main --mode gds-capture-process
+```
+
+Ese comando usa el audio recibido por `baresip`, lo transcribe con el backend
+configurado y ejecuta la decision en `dry-run`.
+
+Si todavia estas usando `sidecar` como backend de transcripcion, puedes simular
+la transcripcion creando:
+
+```bash
+printf "hola vengo donde Alvaro\n" > runtime/baresip-hello/gds-rx.txt
+python3 -m app.main --mode gds-capture-process
+```

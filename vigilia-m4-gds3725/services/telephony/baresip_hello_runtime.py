@@ -80,11 +80,16 @@ class BaresipHelloRuntimeBuilder:
             "config_path": str(config_path),
             "accounts_path": str(accounts_path),
             "audio_file": str(wav_path),
+            "captured_audio_file": str(self.captured_audio_path()),
             "account_line": account_line,
             "listen_uri": f"sip:{self._config.local_user}@{self._config.local_domain}:{self._config.local_port}",
             "run_command": ["baresip", "-s", "-f", str(self._config.workdir)],
+            "process_capture_command": ["python3", "-m", "app.main", "--mode", "gds-capture-process"],
             "gds_call_target": f"{self._config.local_user}@{self._config.local_domain}",
         }
+
+    def captured_audio_path(self) -> Path:
+        return self._config.workdir / "gds-rx.wav"
 
     def _build_config_text(self, wav_path: Path) -> str:
         return "\n".join(

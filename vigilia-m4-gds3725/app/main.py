@@ -56,6 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
             "department-call-service-reply-audio-watch-once",
             "department-call-service-timeout",
             "gds-hello-test",
+            "gds-capture-process",
         ],
         default=None,
     )
@@ -145,6 +146,30 @@ def main() -> int:
 
     if mode == "gds-hello-test":
         preview = BaresipHelloRuntimeBuilder(BaresipHelloRuntimeConfig.from_env(runtime_dir)).prepare()
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "gds-capture-process":
+        hello_runtime = BaresipHelloRuntimeBuilder(BaresipHelloRuntimeConfig.from_env(runtime_dir))
+        captured_audio = args.audio_file or str(hello_runtime.captured_audio_path())
+        preview = AudioFileFlow(
+            resident_directory=resident_directory,
+            conversation_store=ConversationStore(runtime_dir),
+            transcription_backend_name=config.transcription_backend,
+            whisper_model=config.whisper_model,
+            model_backend_name=config.model_backend,
+            ollama_model=config.ollama_model,
+            ollama_timeout_seconds=config.ollama_timeout_seconds,
+        ).run(
+            caller_id="gds3725",
+            audio_file=captured_audio,
+            session_id=args.session_id or "gds-capture-test",
+            device_label="gds3725",
+            transport="sip-udp",
+            face_check_performed=args.face_checked,
+        )
+        preview["mode"] = "gds-capture-process"
+        preview["captured_audio_file"] = captured_audio
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 
