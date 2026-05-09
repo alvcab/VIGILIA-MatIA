@@ -92,3 +92,29 @@ Una vez confirmada la sesion SIP:
 - conectarlo a la capa de transcripcion
 - dejar `dry-run` para la decision
 - recien despues evaluar apertura real
+
+## 8. Prueba De Audio De Vuelta Al GDS
+
+Para validar que MatIA puede hablar por el parlante del `GDS3725`, usa el modo
+local de saludo:
+
+```bash
+python3 -m app.main --mode gds-hello-test
+baresip -s -f runtime/baresip-hello
+```
+
+Ese modo genera un `WAV` local con una frase breve de MatIA, prepara una cuenta
+SIP `door@<IP_DEL_MAC>:5060` y configura `baresip` para responder
+automaticamente.
+
+En el `GDS3725`, desde `Llamadas -> Llamadas salientes`, llama a:
+
+```text
+door@<IP_DEL_MAC>
+```
+
+Resultado esperado:
+
+- el terminal de `baresip` muestra el `INVITE` entrante
+- `baresip` contesta la llamada automaticamente
+- el parlante del `GDS3725` reproduce el saludo de MatIA

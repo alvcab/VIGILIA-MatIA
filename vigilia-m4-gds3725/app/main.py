@@ -13,6 +13,7 @@ from services.decision.resident_directory import ResidentDirectory
 from services.decision.turn_evaluator import TurnEvaluator, TurnInput
 from services.telephony.department_authorization_runtime import DepartmentAuthorizationRuntime
 from services.telephony.department_authorization_service import DepartmentAuthorizationService
+from services.telephony.baresip_hello_runtime import BaresipHelloRuntimeBuilder, BaresipHelloRuntimeConfig
 from services.telephony.baresip_pipeline import BaresipPipeline
 from services.telephony.audio_file_flow import AudioFileFlow
 from services.telephony.call_router import CallRouter
@@ -54,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
             "department-call-service-deposit-reply-audio",
             "department-call-service-reply-audio-watch-once",
             "department-call-service-timeout",
+            "gds-hello-test",
         ],
         default=None,
     )
@@ -138,6 +140,11 @@ def main() -> int:
 
     if mode == "sip-preview":
         preview = SipAdapter().build_preview(args.caller_id)
+        print(json.dumps(preview, ensure_ascii=True, indent=2))
+        return 0
+
+    if mode == "gds-hello-test":
+        preview = BaresipHelloRuntimeBuilder(BaresipHelloRuntimeConfig.from_env(runtime_dir)).prepare()
         print(json.dumps(preview, ensure_ascii=True, indent=2))
         return 0
 
