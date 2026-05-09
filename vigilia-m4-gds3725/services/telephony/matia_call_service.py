@@ -342,6 +342,7 @@ class MatiaDepartmentCallService:
             "audio_file": str(audio_file),
             "transcript": transcription.text,
             "transcription_backend": transcription.backend,
+            "transcription_error": transcription.error,
             "source_path": transcription.source_path,
         }
         self._runtime.save_completed(session_id, completed)

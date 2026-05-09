@@ -136,3 +136,23 @@ la transcripcion creando:
 printf "hola vengo donde Alvaro\n" > runtime/baresip-hello/gds-rx.txt
 python3 -m app.main --mode gds-capture-process
 ```
+
+Para transcribir el audio real con Whisper local:
+
+```bash
+VIGILIA_TRANSCRIPTION_BACKEND=whisper-local VIGILIA_WHISPER_MODEL=tiny \
+  .venv/bin/python -m app.main --mode gds-capture-process
+```
+
+o usa el helper:
+
+```bash
+./scripts/process_gds_capture_whisper.sh
+```
+
+En el entorno local validado, `openai-whisper` vive dentro de `.venv` y usa
+`ffmpeg`. Si `torch` muestra avisos de ABI con NumPy 2, fija NumPy localmente:
+
+```bash
+.venv/bin/python -m pip install "numpy<2"
+```

@@ -24,6 +24,7 @@ class AudioFileFlowTests(unittest.TestCase):
 
         self.assertEqual(result["mode"], "audio-file")
         self.assertEqual(result["transcription"]["backend"], "sidecar_text_stub")
+        self.assertEqual(result["transcription"]["error"], "")
         self.assertEqual(result["decision"]["action"], "clarify_authorization")
         self.assertFalse(result["gate_action"]["would_open"])
         self.assertTrue(result["model_guidance"]["enabled"])
@@ -143,6 +144,7 @@ class AudioFileFlowTests(unittest.TestCase):
                 ).transcribe_file(wav_path)
 
         self.assertEqual(result.backend, "whisper_fallback_sidecar")
+        self.assertIn("no whisper", result.error)
         self.assertEqual(result.text, "hola fallback")
 
 

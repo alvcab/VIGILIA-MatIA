@@ -10,6 +10,7 @@ class TranscriptionResult:
     text: str
     source_path: str
     backend: str
+    error: str = ""
 
 
 class TranscriptionService:
@@ -43,12 +44,13 @@ class TranscriptionService:
                 source_path=source_path,
                 backend=f"whisper_local:{self._whisper_model}",
             )
-        except Exception:
+        except Exception as exc:
             fallback = self._transcribe_with_sidecar(source)
             return TranscriptionResult(
                 text=fallback.text,
                 source_path=source_path,
                 backend="whisper_fallback_sidecar",
+                error=str(exc),
             )
 
     def transcribe_file(self, path: str | Path) -> TranscriptionResult:

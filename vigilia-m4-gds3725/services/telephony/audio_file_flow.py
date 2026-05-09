@@ -100,6 +100,7 @@ class AudioFileFlow:
                 "text": transcription.text,
                 "source_path": transcription.source_path,
                 "backend": transcription.backend,
+                "error": transcription.error,
             },
             "decision": evaluator_result["decision"],
             "rule_engine": evaluator_result["rule_engine"],
