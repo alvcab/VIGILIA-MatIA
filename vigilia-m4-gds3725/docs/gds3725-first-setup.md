@@ -33,21 +33,21 @@ Verifica que el archivo [runtime/baresip/accounts](/Users/alvaroc/Proyectos/VIGI
 
 ## 2. Configurar el GDS3725
 
-Usa estos valores como primera prueba:
+Usa `Direct IP Call` / peering como primera prueba. `baresip` actua como UA
+local, no como PBX ni registrar SIP.
 
-- `Account Active`: `Yes`
-- `SIP Server`: `192.168.100.50`
-- `Outbound Proxy`: vacio
-- `SIP User ID`: `door`
-- `Authenticate ID`: `door`
-- `Authenticate Password`: define una clave fuerte y guardala
-- `Name`: `GDS3725 Front Door`
+- habilitar `Direct IP Call` en la configuracion avanzada SIP
+- `Doorbell Mode`: `Call Doorbell Number`
+- `Number Called When Door Bell Pressed`: `<IP_DEL_MAC>:5060`
+- `Door Bell Call Mode`: `Serial Hunting`
 - `SIP Transport`: `UDP`
-- `Local SIP Port`: `5060`
 - `NAT Traversal`: `No`
 - `SRTP`: `Disabled`
 - `TLS`: `Disabled`
 - `DTMF`: `RFC2833`
+
+Si el firmware exige una cuenta SIP activa aunque se use peering, manten una
+cuenta local simple, pero no dependas de registro contra `baresip`.
 
 ## 3. Codecs Recomendados Para La Primera Prueba
 
