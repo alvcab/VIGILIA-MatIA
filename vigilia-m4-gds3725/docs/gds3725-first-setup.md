@@ -178,8 +178,10 @@ Para una prueba semi-automatica de extremo a extremo:
 ```
 
 Ese helper prepara el saludo, ejecuta `baresip`, espera la llamada del GDS y,
-cuando `baresip` termina, procesa `runtime/baresip-hello/gds-rx.wav` con rostro
-confiable simulado para abrir por HTTP si la decision queda autorizada.
+cuando detecta audio, corta la llamada unos segundos despues y procesa
+`runtime/baresip-hello/gds-rx.wav` con rostro confiable simulado para abrir por
+HTTP si la decision queda autorizada. Puedes ajustar los tiempos con
+`VIGILIA_GDS_CALL_WAIT_SECONDS` y `VIGILIA_GDS_AFTER_CAPTURE_SECONDS`.
 
 En el entorno local validado, `openai-whisper` vive dentro de `.venv` y usa
 `ffmpeg`. Si `torch` muestra avisos de ABI con NumPy 2, fija NumPy localmente:
