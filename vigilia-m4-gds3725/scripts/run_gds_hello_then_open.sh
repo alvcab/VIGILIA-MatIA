@@ -17,12 +17,13 @@ BARESIP_BINARY="${VIGILIA_BARESIP_BINARY:-baresip}"
 BARESIP_CONFIG_DIR="${VIGILIA_HELLO_BARESIP_WORKDIR:-runtime/baresip-hello}"
 CAPTURED_AUDIO="${BARESIP_CONFIG_DIR}/gds-rx.wav"
 
+export VIGILIA_HELLO_SIP_DOMAIN="${VIGILIA_HELLO_SIP_DOMAIN:-192.168.100.234}"
 export VIGILIA_HELLO_TEXT="${VIGILIA_HELLO_TEXT:-Hola Alvaro, soy MatIA. Te escucho.}"
 
-"${PYTHON_BIN}" -m app.main --mode gds-hello-test >/dev/null
+LISTEN_URI="$("${PYTHON_BIN}" -m app.main --mode gds-hello-test | "${PYTHON_BIN}" -c 'import json, sys; print(json.load(sys.stdin)["listen_uri"])')"
 rm -f "${CAPTURED_AUDIO}"
 
-echo "MatIA escuchando en el GDS. Aprieta el boton del timbre."
+echo "MatIA escuchando en ${LISTEN_URI}. Aprieta el boton del timbre."
 echo "Cuando termine la llamada, se procesara la captura y se abrira si la decision autoriza."
 
 "${BARESIP_BINARY}" -s -f "${BARESIP_CONFIG_DIR}"
