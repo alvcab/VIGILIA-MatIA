@@ -38,10 +38,11 @@ Clonar el repo y validar que el scaffold corra:
 
 ```bash
 cd vigilia-m4-gds3725
-python3 -m unittest discover -s tests -v
-python3 -m app.main --mode sip-preview --caller-id gds-front-door
-python3 -m app.main --mode baresip-preview --caller-id gds-front-door
+./scripts/bootstrap_mac_mini.sh
 ```
+
+Ese bootstrap crea `.env` si falta, prepara `.venv`, instala dependencias de
+Python, valida `ffmpeg`, `baresip` y `say`, prepara runtime y corre la suite.
 
 ## 4. Variables De Entorno
 
@@ -126,3 +127,38 @@ Una vez que el `Mac mini` este listo:
 - hacer la primera llamada SIP
 - capturar resultados
 - recien despues conectar transcripcion y decision
+
+## 11. Servicio Local De MatIA
+
+Para dejar a MatIA esperando llamadas del GDS en loop:
+
+```bash
+./scripts/matia_gds_service.sh
+```
+
+Ese servicio ejecuta el flujo guardado:
+
+```bash
+./scripts/abrir_con_rostro_identificable.sh
+```
+
+Los logs quedan en:
+
+```text
+runtime/logs/matia-gds-service.log
+```
+
+Para correr solo un ciclo:
+
+```bash
+VIGILIA_SERVICE_RUN_ONCE=1 ./scripts/matia_gds_service.sh
+```
+
+Hay una plantilla de `launchd` en:
+
+```text
+launchd/com.vigilia.matia-gds.plist.example
+```
+
+En el Mac mini final hay que ajustar las rutas de esa plantilla al path real
+del repo antes de instalarla.
