@@ -171,6 +171,16 @@ motor de vision, pasa la coincidencia simulada por CLI:
 Ese comando carga `.env`, usa Whisper local por defecto y llama al endpoint HTTP
 del GDS solo si la evaluacion final queda en `open`.
 
+Para una prueba semi-automatica de extremo a extremo:
+
+```bash
+./scripts/run_gds_hello_then_open.sh
+```
+
+Ese helper prepara el saludo, ejecuta `baresip`, espera la llamada del GDS y,
+cuando `baresip` termina, procesa `runtime/baresip-hello/gds-rx.wav` con rostro
+confiable simulado para abrir por HTTP si la decision queda autorizada.
+
 En el entorno local validado, `openai-whisper` vive dentro de `.venv` y usa
 `ffmpeg`. Si `torch` muestra avisos de ABI con NumPy 2, fija NumPy localmente:
 
