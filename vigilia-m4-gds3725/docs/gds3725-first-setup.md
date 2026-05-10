@@ -150,6 +150,27 @@ o usa el helper:
 ./scripts/process_gds_capture_whisper.sh
 ```
 
+Para ejecutar la misma captura y abrir el GDS solo cuando la decision autoriza
+`should_open=true`, usa el modo de prueba con apertura HTTP:
+
+```bash
+./scripts/process_gds_capture_and_open.sh
+```
+
+Para una prueba controlada de rostro confiable desde el GDS, sin integrar aun un
+motor de vision, pasa la coincidencia simulada por CLI:
+
+```bash
+./scripts/process_gds_capture_and_open.sh \
+  --face-trusted \
+  --face-resident-id alvaro \
+  --face-display-name Alvaro \
+  --face-confidence high
+```
+
+Ese comando carga `.env`, usa Whisper local por defecto y llama al endpoint HTTP
+del GDS solo si la evaluacion final queda en `open`.
+
 En el entorno local validado, `openai-whisper` vive dentro de `.venv` y usa
 `ffmpeg`. Si `torch` muestra avisos de ABI con NumPy 2, fija NumPy localmente:
 
