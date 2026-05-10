@@ -117,6 +117,25 @@ VIGILIA_OLLAMA_MODEL=llama3.2:3b
 Si Ollama falla, el codigo cae a respuestas stub para no bloquear el flujo de
 acceso.
 
+## 3.2 OpenVoice Opcional
+
+Para experimentar con voz clonada de MatIA:
+
+```bash
+./scripts/bootstrap_openvoice.sh
+./scripts/record_matia_voice_sample.sh
+./scripts/verify_openvoice_ready.sh
+```
+
+El detalle esta en:
+
+```text
+docs/openvoice-matia.md
+```
+
+OpenVoice no bloquea el servicio GDS actual. Primero se valida como laboratorio
+de voz y luego se integra al saludo.
+
 ## 4. Variables De Entorno
 
 Copiar el ejemplo:
