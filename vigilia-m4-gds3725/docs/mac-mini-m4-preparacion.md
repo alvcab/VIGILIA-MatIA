@@ -90,6 +90,33 @@ Ese script no abre el porton ni deja servicios corriendo. Solo confirma que el
 Mac mini tiene dependencias, runtime, voz, variables criticas y tests basicos
 listos para el GDS.
 
+## 3.1 Ollama Opcional
+
+Ollama no bloquea el flujo `abrir_con_rostro_identificable`, porque ese camino
+usa `--face-trusted` y no requiere LLM. Para preparar la capa conversacional:
+
+```bash
+./scripts/bootstrap_ollama.sh
+./scripts/verify_ollama_ready.sh
+```
+
+Por defecto baja `llama3.2:3b`. Se puede cambiar con:
+
+```bash
+VIGILIA_OLLAMA_MODEL=llama3.2:1b ./scripts/bootstrap_ollama.sh
+```
+
+Cuando el modelo este listo y queramos activar respuestas conversacionales,
+ajustar `.env`:
+
+```text
+VIGILIA_MODEL_BACKEND=ollama
+VIGILIA_OLLAMA_MODEL=llama3.2:3b
+```
+
+Si Ollama falla, el codigo cae a respuestas stub para no bloquear el flujo de
+acceso.
+
 ## 4. Variables De Entorno
 
 Copiar el ejemplo:
