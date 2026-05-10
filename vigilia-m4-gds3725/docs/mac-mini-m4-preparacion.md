@@ -80,6 +80,16 @@ cd vigilia-m4-gds3725
 Ese bootstrap crea `.env` si falta, prepara `.venv`, instala dependencias de
 Python, valida `ffmpeg`, `baresip` y `say`, prepara runtime y corre la suite.
 
+Despues del bootstrap, corre el verificador:
+
+```bash
+./scripts/verify_mac_mini_ready.sh
+```
+
+Ese script no abre el porton ni deja servicios corriendo. Solo confirma que el
+Mac mini tiene dependencias, runtime, voz, variables criticas y tests basicos
+listos para el GDS.
+
 ## 4. Variables De Entorno
 
 Copiar el ejemplo:
