@@ -177,6 +177,12 @@ Para una prueba semi-automatica de extremo a extremo:
 ./scripts/run_gds_hello_then_open.sh
 ```
 
+El mismo flujo queda guardado tambien como:
+
+```bash
+./scripts/abrir_con_rostro_identificable.sh
+```
+
 Ese helper prepara el saludo, ejecuta `baresip`, espera la llamada del GDS y,
 cuando detecta audio, abre por HTTP unos segundos despues con rostro confiable
 simulado. Luego espera brevemente y cuelga la llamada. Puedes ajustar los
@@ -187,6 +193,8 @@ no cuelga inmediatamente: mantiene la llamada por
 Cuando se usa `--face-trusted`, el modo `gds-capture-open` omite Whisper y abre
 con la decision de rostro confiable para que la prueba no espere la
 transcripcion local.
+El saludo usa por defecto la voz masculina `Rocko (Español (México))`; se puede
+sobrescribir con `VIGILIA_HELLO_VOICE`.
 
 En el entorno local validado, `openai-whisper` vive dentro de `.venv` y usa
 `ffmpeg`. Si `torch` muestra avisos de ABI con NumPy 2, fija NumPy localmente:

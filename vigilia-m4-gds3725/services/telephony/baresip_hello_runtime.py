@@ -14,7 +14,7 @@ class BaresipHelloRuntimeConfig:
     local_domain: str
     local_port: int
     greeting_text: str = "Hola, soy MatIA. Esta es una prueba de audio."
-    voice: str = "Monica"
+    voice: str = "Rocko (Español (México))"
     module_path: str = "/usr/local/lib/baresip/modules"
 
     @classmethod
@@ -26,7 +26,7 @@ class BaresipHelloRuntimeConfig:
             local_domain=local_domain or detect_lan_ip(),
             local_port=int(os.getenv("VIGILIA_HELLO_SIP_PORT", "5060")),
             greeting_text=os.getenv("VIGILIA_HELLO_TEXT", "Hola, soy MatIA. Esta es una prueba de audio."),
-            voice=os.getenv("VIGILIA_HELLO_VOICE", "Monica"),
+            voice=os.getenv("VIGILIA_HELLO_VOICE", "Rocko (Español (México))"),
             module_path=os.getenv("VIGILIA_BARESIP_MODULE_PATH", "/usr/local/lib/baresip/modules"),
         )
 

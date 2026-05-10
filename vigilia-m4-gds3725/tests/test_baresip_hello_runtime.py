@@ -46,6 +46,7 @@ class BaresipHelloRuntimeBuilderTests(unittest.TestCase):
         self.assertEqual(config.local_user, "door")
         self.assertEqual(config.local_domain, "192.168.100.234")
         self.assertEqual(config.local_port, 5060)
+        self.assertEqual(config.voice, "Rocko (Español (México))")
 
     def test_detect_lan_ip_prefers_private_ifconfig_address(self) -> None:
         from services.telephony import baresip_hello_runtime

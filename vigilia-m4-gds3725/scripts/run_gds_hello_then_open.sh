@@ -23,6 +23,7 @@ HANGUP_AFTER_OPEN_SECONDS="${VIGILIA_GDS_HANGUP_AFTER_OPEN_SECONDS:-2}"
 KEEP_CALL_AFTER_FAILED_OPEN_SECONDS="${VIGILIA_GDS_KEEP_CALL_AFTER_FAILED_OPEN_SECONDS:-20}"
 
 export VIGILIA_HELLO_SIP_DOMAIN="${VIGILIA_HELLO_SIP_DOMAIN:-192.168.100.234}"
+export VIGILIA_HELLO_VOICE="${VIGILIA_HELLO_VOICE:-Rocko (Español (México))}"
 export VIGILIA_HELLO_TEXT="${VIGILIA_HELLO_TEXT:-Hola Alvaro, soy MatIA. Te escucho.}"
 
 LISTEN_URI="$("${PYTHON_BIN}" -m app.main --mode gds-hello-test | "${PYTHON_BIN}" -c 'import json, sys; print(json.load(sys.stdin)["listen_uri"])')"
