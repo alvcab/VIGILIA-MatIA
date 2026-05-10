@@ -178,28 +178,58 @@ def main() -> int:
     if mode == "gds-capture-open":
         hello_runtime = BaresipHelloRuntimeBuilder(BaresipHelloRuntimeConfig.from_env(runtime_dir))
         captured_audio = args.audio_file or str(hello_runtime.captured_audio_path())
-        preview = AudioFileFlow(
-            resident_directory=resident_directory,
-            conversation_store=ConversationStore(runtime_dir),
-            transcription_backend_name=config.transcription_backend,
-            whisper_model=config.whisper_model,
-            model_backend_name=config.model_backend,
-            ollama_model=config.ollama_model,
-            ollama_timeout_seconds=config.ollama_timeout_seconds,
-        ).run(
-            caller_id="gds3725",
-            audio_file=captured_audio,
-            session_id=args.session_id or "gds-capture-open-test",
-            device_label="gds3725",
-            transport="sip-udp",
-            face_match_resident_id=args.face_resident_id,
-            face_match_display_name=args.face_display_name,
-            face_match_confidence=args.face_confidence,
-            face_match_trusted=args.face_trusted,
-            face_check_performed=args.face_checked,
-            department_authorization_status=args.department_status,
-            registered_visit_code=args.registered_visit_code,
-        )
+        if args.face_trusted:
+            preview = TurnEvaluator(
+                resident_directory=resident_directory,
+                conversation_store=ConversationStore(runtime_dir),
+                model_backend_name=config.model_backend,
+                ollama_model=config.ollama_model,
+                ollama_timeout_seconds=config.ollama_timeout_seconds,
+            ).evaluate_turn(
+                TurnInput(
+                    session_id=args.session_id or "gds-capture-open-test",
+                    caller_id="gds3725",
+                    transcript="",
+                    device_label="gds3725",
+                    transport="sip-udp",
+                    face_match_resident_id=args.face_resident_id,
+                    face_match_display_name=args.face_display_name,
+                    face_match_confidence=args.face_confidence,
+                    face_match_trusted=True,
+                    face_check_performed=args.face_checked,
+                    department_authorization_status=args.department_status,
+                    registered_visit_code=args.registered_visit_code,
+                )
+            )
+            preview["transcription"] = {
+                "text": "",
+                "source_path": captured_audio,
+                "backend": "skipped_trusted_face",
+                "error": "",
+            }
+        else:
+            preview = AudioFileFlow(
+                resident_directory=resident_directory,
+                conversation_store=ConversationStore(runtime_dir),
+                transcription_backend_name=config.transcription_backend,
+                whisper_model=config.whisper_model,
+                model_backend_name=config.model_backend,
+                ollama_model=config.ollama_model,
+                ollama_timeout_seconds=config.ollama_timeout_seconds,
+            ).run(
+                caller_id="gds3725",
+                audio_file=captured_audio,
+                session_id=args.session_id or "gds-capture-open-test",
+                device_label="gds3725",
+                transport="sip-udp",
+                face_match_resident_id=args.face_resident_id,
+                face_match_display_name=args.face_display_name,
+                face_match_confidence=args.face_confidence,
+                face_match_trusted=args.face_trusted,
+                face_check_performed=args.face_checked,
+                department_authorization_status=args.department_status,
+                registered_visit_code=args.registered_visit_code,
+            )
         live_gate_action = Gds37xxHttpGate().handle(Decision(**preview["decision"]))
         preview["mode"] = "gds-capture-open"
         preview["captured_audio_file"] = captured_audio

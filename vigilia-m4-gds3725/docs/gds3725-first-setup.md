@@ -182,6 +182,9 @@ cuando detecta audio, corta la llamada unos segundos despues y procesa
 `runtime/baresip-hello/gds-rx.wav` con rostro confiable simulado para abrir por
 HTTP si la decision queda autorizada. Puedes ajustar los tiempos con
 `VIGILIA_GDS_CALL_WAIT_SECONDS` y `VIGILIA_GDS_AFTER_CAPTURE_SECONDS`.
+Cuando se usa `--face-trusted`, el modo `gds-capture-open` omite Whisper y abre
+con la decision de rostro confiable para que la prueba no espere la
+transcripcion local.
 
 En el entorno local validado, `openai-whisper` vive dentro de `.venv` y usa
 `ffmpeg`. Si `torch` muestra avisos de ABI con NumPy 2, fija NumPy localmente:
