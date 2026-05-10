@@ -32,6 +32,42 @@ Ejemplo:
 
 Esto ayuda para logs, mDNS y diagnostico local, aunque la primera prueba conviene hacerla por IP.
 
+## 2.1 Antigravity
+
+Antigravity se instala manualmente porque es una aplicacion de escritorio con
+login, permisos de macOS y configuracion de editor.
+
+En el Mac mini:
+
+1. Descargar desde la pagina oficial:
+
+```text
+https://antigravity.google/download
+```
+
+2. Abrir el `.dmg`.
+3. Arrastrar `Antigravity` a `Applications`.
+4. Abrir la app y permitirla en `System Settings -> Privacy & Security` si macOS
+   la bloquea en el primer arranque.
+5. Iniciar sesion con Gmail.
+6. Abrir el repo:
+
+```text
+/Users/vigilia/VIGILIA-MatIA
+```
+
+7. Instalar o habilitar la extension de navegador solo si se va a usar el
+   agente para tareas web. Para VIGILIA/GDS no es obligatoria.
+
+Antigravity no reemplaza el servicio local de MatIA. El servicio real sigue
+corriendo con:
+
+```bash
+./scripts/matia_gds_service.sh
+```
+
+Antigravity queda como IDE/agente para editar, revisar logs y operar el repo.
+
 ## 3. Python y Repo
 
 Clonar el repo y validar que el scaffold corra:
