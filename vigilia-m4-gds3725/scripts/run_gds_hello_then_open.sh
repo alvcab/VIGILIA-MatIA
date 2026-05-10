@@ -16,6 +16,7 @@ PYTHON_BIN="${VIGILIA_PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
 BARESIP_BINARY="${VIGILIA_BARESIP_BINARY:-baresip}"
 BARESIP_CONFIG_DIR="${VIGILIA_HELLO_BARESIP_WORKDIR:-runtime/baresip-hello}"
 CAPTURED_AUDIO="${BARESIP_CONFIG_DIR}/gds-rx.wav"
+LOCAL_TMP_DIR="${REPO_ROOT}/runtime/tmp"
 CALL_WAIT_SECONDS="${VIGILIA_GDS_CALL_WAIT_SECONDS:-45}"
 AFTER_CAPTURE_SECONDS="${VIGILIA_GDS_AFTER_CAPTURE_SECONDS:-3}"
 HANGUP_AFTER_OPEN_SECONDS="${VIGILIA_GDS_HANGUP_AFTER_OPEN_SECONDS:-2}"
@@ -25,6 +26,7 @@ export VIGILIA_HELLO_SIP_DOMAIN="${VIGILIA_HELLO_SIP_DOMAIN:-192.168.100.234}"
 export VIGILIA_HELLO_TEXT="${VIGILIA_HELLO_TEXT:-Hola Alvaro, soy MatIA. Te escucho.}"
 
 LISTEN_URI="$("${PYTHON_BIN}" -m app.main --mode gds-hello-test | "${PYTHON_BIN}" -c 'import json, sys; print(json.load(sys.stdin)["listen_uri"])')"
+mkdir -p "${LOCAL_TMP_DIR}"
 rm -f "${CAPTURED_AUDIO}"
 
 echo "MatIA escuchando en ${LISTEN_URI}. Aprieta el boton del timbre."
@@ -45,7 +47,7 @@ OPENED=0
 
 attempt_open() {
   local output_file
-  output_file="$(mktemp "${TMPDIR:-/tmp}/vigilia-gds-open.XXXXXX")"
+  output_file="$(mktemp "${LOCAL_TMP_DIR}/vigilia-gds-open.XXXXXX")"
   if "${REPO_ROOT}/scripts/process_gds_capture_and_open.sh" \
     --face-trusted \
     --face-resident-id "${VIGILIA_GDS_TEST_FACE_RESIDENT_ID:-alvaro}" \
