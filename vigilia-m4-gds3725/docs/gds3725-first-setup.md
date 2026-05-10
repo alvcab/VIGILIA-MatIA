@@ -181,7 +181,9 @@ Ese helper prepara el saludo, ejecuta `baresip`, espera la llamada del GDS y,
 cuando detecta audio, abre por HTTP unos segundos despues con rostro confiable
 simulado. Luego espera brevemente y cuelga la llamada. Puedes ajustar los
 tiempos con `VIGILIA_GDS_CALL_WAIT_SECONDS`, `VIGILIA_GDS_AFTER_CAPTURE_SECONDS`
-y `VIGILIA_GDS_HANGUP_AFTER_OPEN_SECONDS`.
+y `VIGILIA_GDS_HANGUP_AFTER_OPEN_SECONDS`. Si la apertura HTTP falla, el helper
+no cuelga inmediatamente: mantiene la llamada por
+`VIGILIA_GDS_KEEP_CALL_AFTER_FAILED_OPEN_SECONDS` y deja el error visible.
 Cuando se usa `--face-trusted`, el modo `gds-capture-open` omite Whisper y abre
 con la decision de rostro confiable para que la prueba no espere la
 transcripcion local.

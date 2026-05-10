@@ -19,6 +19,7 @@ CAPTURED_AUDIO="${BARESIP_CONFIG_DIR}/gds-rx.wav"
 CALL_WAIT_SECONDS="${VIGILIA_GDS_CALL_WAIT_SECONDS:-45}"
 AFTER_CAPTURE_SECONDS="${VIGILIA_GDS_AFTER_CAPTURE_SECONDS:-3}"
 HANGUP_AFTER_OPEN_SECONDS="${VIGILIA_GDS_HANGUP_AFTER_OPEN_SECONDS:-2}"
+KEEP_CALL_AFTER_FAILED_OPEN_SECONDS="${VIGILIA_GDS_KEEP_CALL_AFTER_FAILED_OPEN_SECONDS:-20}"
 
 export VIGILIA_HELLO_SIP_DOMAIN="${VIGILIA_HELLO_SIP_DOMAIN:-192.168.100.234}"
 export VIGILIA_HELLO_TEXT="${VIGILIA_HELLO_TEXT:-Hola Alvaro, soy MatIA. Te escucho.}"
@@ -40,21 +41,39 @@ trap cleanup EXIT
 "${BARESIP_BINARY}" -s -f "${BARESIP_CONFIG_DIR}" &
 BARESIP_PID="$!"
 OPEN_ATTEMPTED=0
+OPENED=0
+
+attempt_open() {
+  local output_file
+  output_file="$(mktemp "${TMPDIR:-/tmp}/vigilia-gds-open.XXXXXX")"
+  if "${REPO_ROOT}/scripts/process_gds_capture_and_open.sh" \
+    --face-trusted \
+    --face-resident-id "${VIGILIA_GDS_TEST_FACE_RESIDENT_ID:-alvaro}" \
+    --face-display-name "${VIGILIA_GDS_TEST_FACE_DISPLAY_NAME:-Alvaro}" \
+    --face-confidence "${VIGILIA_GDS_TEST_FACE_CONFIDENCE:-high}" \
+    "$@" | tee "${output_file}"; then
+    if grep -q '"opened": true' "${output_file}"; then
+      OPENED=1
+    fi
+  else
+    echo "La apertura HTTP fallo; se mantiene la llamada por ${KEEP_CALL_AFTER_FAILED_OPEN_SECONDS}s." >&2
+  fi
+  rm -f "${output_file}"
+}
 
 elapsed=0
 while [[ "${elapsed}" -lt "${CALL_WAIT_SECONDS}" ]]; do
   if [[ -s "${CAPTURED_AUDIO}" ]]; then
     sleep "${AFTER_CAPTURE_SECONDS}"
-    "${REPO_ROOT}/scripts/process_gds_capture_and_open.sh" \
-      --face-trusted \
-      --face-resident-id "${VIGILIA_GDS_TEST_FACE_RESIDENT_ID:-alvaro}" \
-      --face-display-name "${VIGILIA_GDS_TEST_FACE_DISPLAY_NAME:-Alvaro}" \
-      --face-confidence "${VIGILIA_GDS_TEST_FACE_CONFIDENCE:-high}" \
-      "$@"
+    attempt_open "$@"
     OPEN_ATTEMPTED=1
-    sleep "${HANGUP_AFTER_OPEN_SECONDS}"
-    cleanup
-    trap - EXIT
+    if [[ "${OPENED}" -eq 1 ]]; then
+      sleep "${HANGUP_AFTER_OPEN_SECONDS}"
+      cleanup
+      trap - EXIT
+    else
+      sleep "${KEEP_CALL_AFTER_FAILED_OPEN_SECONDS}"
+    fi
     break
   fi
   if ! kill -0 "${BARESIP_PID}" 2>/dev/null; then
@@ -76,10 +95,5 @@ if [[ ! -s "${CAPTURED_AUDIO}" ]]; then
 fi
 
 if [[ "${OPEN_ATTEMPTED}" -eq 0 ]]; then
-  "${REPO_ROOT}/scripts/process_gds_capture_and_open.sh" \
-    --face-trusted \
-    --face-resident-id "${VIGILIA_GDS_TEST_FACE_RESIDENT_ID:-alvaro}" \
-    --face-display-name "${VIGILIA_GDS_TEST_FACE_DISPLAY_NAME:-Alvaro}" \
-    --face-confidence "${VIGILIA_GDS_TEST_FACE_CONFIDENCE:-high}" \
-    "$@"
+  attempt_open "$@"
 fi
